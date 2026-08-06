@@ -16,9 +16,9 @@ $pageTitle = $pageTitle ?? 'Masar';
     <title><?= htmlspecialchars($pageTitle) ?> | Masar</title>
 
     <link
-        rel="stylesheet"
-        href="/masar/assets/css/style.css?v=2"
-    >
+    rel="stylesheet"
+    href="/masar/assets/css/style.css?v=3"
+>
     
     <script
     src="/masar/assets/js/main.js?v=2"

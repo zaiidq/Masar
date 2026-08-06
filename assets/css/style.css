@@ -353,3 +353,49 @@ body {
         grid-template-columns: repeat(2, 1fr);
     }
 }
+
+.content-card {
+    background: #ffffff;
+    padding: 28px;
+    border-radius: 14px;
+    box-shadow: 0 5px 20px rgba(0, 0, 0, 0.06);
+}
+
+.profile-card {
+    max-width: 850px;
+}
+
+.profile-form-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 4px 20px;
+}
+
+.form-help {
+    display: block;
+    margin-top: 7px;
+    color: #6b7280;
+    font-size: 13px;
+}
+
+.profile-save-button {
+    width: auto;
+    min-width: 160px;
+    margin-top: 8px;
+    padding-left: 24px;
+    padding-right: 24px;
+}
+
+@media (max-width: 700px) {
+    .content-card {
+        padding: 20px;
+    }
+
+    .profile-form-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .profile-save-button {
+        width: 100%;
+    }
+}
