@@ -500,3 +500,155 @@ body {
         padding: 20px;
     }
 }
+.admin-form-card,
+.admin-list-card {
+    margin-bottom: 24px;
+}
+
+.admin-form-card h2,
+.admin-list-card h2 {
+    margin-bottom: 22px;
+}
+
+.admin-form-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 4px 20px;
+}
+
+.admin-full-width {
+    grid-column: 1 / -1;
+}
+
+.admin-submit-button {
+    width: auto;
+    min-width: 140px;
+}
+
+.table-wrapper {
+    overflow-x: auto;
+}
+
+.admin-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.admin-table th,
+.admin-table td {
+    padding: 14px;
+    border-bottom: 1px solid #e5e7eb;
+    text-align: left;
+    vertical-align: middle;
+}
+
+.admin-table th {
+    background: #f9fafb;
+    font-size: 14px;
+}
+
+.admin-table a {
+    color: #2563eb;
+    text-decoration: none;
+    font-weight: bold;
+}
+
+.status-active,
+.status-inactive {
+    display: inline-block;
+    padding: 5px 9px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: bold;
+}
+
+.status-active {
+    background: #dcfce7;
+    color: #166534;
+}
+
+.status-inactive {
+    background: #f3f4f6;
+    color: #6b7280;
+}
+
+.table-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.action-button {
+    border: 0;
+    padding: 8px 11px;
+    border-radius: 7px;
+    background: #e5e7eb;
+    color: #1f2937;
+    cursor: pointer;
+}
+
+.danger-button {
+    background: #fee2e2;
+    color: #991b1b;
+}
+
+@media (max-width: 700px) {
+    .admin-form-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .admin-full-width {
+        grid-column: auto;
+    }
+
+    .admin-submit-button {
+        width: 100%;
+    }
+
+    .table-actions {
+        min-width: 150px;
+    }
+}
+.admin-form-heading {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 15px;
+    margin-bottom: 22px;
+}
+
+.admin-form-heading h2 {
+    margin-bottom: 0;
+}
+
+.action-button {
+    display: inline-block;
+    text-decoration: none;
+    font-size: 14px;
+}
+
+.edit-button {
+    background: #dbeafe;
+    color: #1d4ed8;
+}
+
+.edit-button:hover {
+    background: #bfdbfe;
+}
+
+.cancel-edit-link {
+    color: #6b7280;
+    text-decoration: none;
+    font-weight: bold;
+}
+
+.cancel-edit-link:hover {
+    color: #111827;
+}
+
+@media (max-width: 600px) {
+    .admin-form-heading {
+        align-items: flex-start;
+        flex-direction: column;
+    }
+}

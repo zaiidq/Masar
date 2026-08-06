@@ -8,27 +8,49 @@ if ($_SESSION['role'] !== 'admin') {
     header('Location: ../student/dashboard.php');
     exit;
 }
+
+$pageTitle = 'Admin Dashboard';
+
+require_once __DIR__ . '/../includes/header.php';
+require_once __DIR__ . '/../includes/admin-sidebar.php';
 ?>
 
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta
-        name="viewport"
-        content="width=device-width, initial-scale=1.0"
-    >
-    <title>Admin Dashboard | Masar</title>
-</head>
-<body>
+<main class="main-content">
 
-    <h1>
-        Welcome, <?= htmlspecialchars($_SESSION['full_name']) ?>
-    </h1>
+    <header class="page-header">
+        <h1>Admin Dashboard</h1>
 
-    <p>Admin Dashboard</p>
+        <p>
+            Manage Masar content and system services.
+        </p>
+    </header>
 
-    <a href="../auth/logout.php">Logout</a>
+    <section class="dashboard-grid">
 
-</body>
-</html>
+        <article class="dashboard-card">
+            <p>Registered Users</p>
+            <h2>—</h2>
+        </article>
+
+        <article class="dashboard-card">
+            <p>University Links</p>
+            <h2>—</h2>
+        </article>
+
+        <article class="dashboard-card">
+            <p>Marketplace Posts</p>
+            <h2>—</h2>
+        </article>
+
+        <article class="dashboard-card">
+            <p>Pending Reviews</p>
+            <h2>—</h2>
+        </article>
+
+    </section>
+
+</main>
+
+<?php
+
+require_once __DIR__ . '/../includes/footer.php';

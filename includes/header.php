@@ -1,6 +1,12 @@
 <?php
 
 $pageTitle = $pageTitle ?? 'Masar';
+
+$dashboardUrl = (
+    ($_SESSION['role'] ?? 'student') === 'admin'
+)
+    ? '/masar/admin/dashboard.php'
+    : '/masar/student/dashboard.php';
 ?>
 
 <!DOCTYPE html>
@@ -17,7 +23,7 @@ $pageTitle = $pageTitle ?? 'Masar';
 
     <link
     rel="stylesheet"
-    href="/masar/assets/css/style.css?v=5"
+    href="/masar/assets/css/style.css?v=8"
 >
     
     <script
@@ -45,11 +51,11 @@ $pageTitle = $pageTitle ?? 'Masar';
     </button>
 
     <a
-        href="/masar/student/dashboard.php"
-        class="mobile-logo"
-    >
-        Masar
-    </a>
+    href="<?= htmlspecialchars($dashboardUrl) ?>"
+    class="mobile-logo"
+>
+    Masar
+</a>
 </header>
 
 <div
