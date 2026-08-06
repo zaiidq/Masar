@@ -17,7 +17,7 @@ $pageTitle = $pageTitle ?? 'Masar';
 
     <link
     rel="stylesheet"
-    href="/masar/assets/css/style.css?v=3"
+    href="/masar/assets/css/style.css?v=5"
 >
     
     <script
