@@ -70,92 +70,142 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 ?>
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+
     <meta
         name="viewport"
         content="width=device-width, initial-scale=1.0"
     >
+
     <title>Register | Masar</title>
+
+    <link
+        rel="stylesheet"
+        href="../assets/css/style.css"
+    >
 </head>
+
 <body>
 
-    <h1>Create Account</h1>
+    <main class="auth-page">
 
-    <?php if (!empty($errors)): ?>
-        <ul>
-            <?php foreach ($errors as $error): ?>
-                <li>
-                    <?= htmlspecialchars($error) ?>
-                </li>
-            <?php endforeach; ?>
-        </ul>
-    <?php endif; ?>
+        <section class="auth-card">
 
-    <?php if ($success !== ''): ?>
-        <p>
-            <?= htmlspecialchars($success) ?>
-        </p>
-    <?php endif; ?>
+            <div class="auth-logo">
+                <h1>Masar</h1>
+                <p>Create your student account</p>
+            </div>
 
-    <form method="POST" action="">
-        <div>
-            <label for="full_name">Full Name</label>
-            <input
-                type="text"
-                id="full_name"
-                name="full_name"
-                value="<?= htmlspecialchars($fullName ?? '') ?>"
-                required
-            >
-        </div>
+            <?php if (!empty($errors)): ?>
+                <div class="alert-error">
+                    <ul>
+                        <?php foreach ($errors as $error): ?>
+                            <li>
+                                <?= htmlspecialchars($error) ?>
+                            </li>
+                        <?php endforeach; ?>
+                    </ul>
+                </div>
+            <?php endif; ?>
 
-        <div>
-            <label for="university_id">University ID</label>
-            <input
-                type="text"
-                id="university_id"
-                name="university_id"
-                value="<?= htmlspecialchars($universityId ?? '') ?>"
-            >
-        </div>
+            <?php if ($success !== ''): ?>
+                <div class="alert-success">
+                    <?= htmlspecialchars($success) ?>
+                </div>
+            <?php endif; ?>
 
-        <div>
-            <label for="email">Email</label>
-            <input
-                type="email"
-                id="email"
-                name="email"
-                value="<?= htmlspecialchars($email ?? '') ?>"
-                required
-            >
-        </div>
+            <form method="POST" action="">
 
-        <div>
-            <label for="password">Password</label>
-            <input
-                type="password"
-                id="password"
-                name="password"
-                required
-            >
-        </div>
+                <div class="form-group">
+                    <label for="full_name">
+                        Full Name
+                    </label>
 
-        <div>
-            <label for="confirm_password">Confirm Password</label>
-            <input
-                type="password"
-                id="confirm_password"
-                name="confirm_password"
-                required
-            >
-        </div>
+                    <input
+                        type="text"
+                        id="full_name"
+                        name="full_name"
+                        value="<?= htmlspecialchars($fullName ?? '') ?>"
+                        required
+                    >
+                </div>
 
-        <button type="submit">Register</button>
-    </form>
+                <div class="form-group">
+                    <label for="university_id">
+                        University ID
+                    </label>
+
+                    <input
+                        type="text"
+                        id="university_id"
+                        name="university_id"
+                        value="<?= htmlspecialchars($universityId ?? '') ?>"
+                    >
+                </div>
+
+                <div class="form-group">
+                    <label for="email">
+                        Email Address
+                    </label>
+
+                    <input
+                        type="email"
+                        id="email"
+                        name="email"
+                        value="<?= htmlspecialchars($email ?? '') ?>"
+                        required
+                    >
+                </div>
+
+                <div class="form-group">
+                    <label for="password">
+                        Password
+                    </label>
+
+                    <input
+                        type="password"
+                        id="password"
+                        name="password"
+                        required
+                    >
+                </div>
+
+                <div class="form-group">
+                    <label for="confirm_password">
+                        Confirm Password
+                    </label>
+
+                    <input
+                        type="password"
+                        id="confirm_password"
+                        name="confirm_password"
+                        required
+                    >
+                </div>
+
+                <button
+                    type="submit"
+                    class="btn-primary"
+                >
+                    Create Account
+                </button>
+
+            </form>
+
+            <div class="auth-footer">
+                Already have an account?
+
+                <a href="login.php">
+                    Login
+                </a>
+            </div>
+
+        </section>
+
+    </main>
 
 </body>
 </html>

@@ -54,38 +54,71 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         content="width=device-width, initial-scale=1.0"
     >
     <title>Login | Masar</title>
+
+    <link
+        rel="stylesheet"
+        href="../assets/css/style.css"
+    >
 </head>
 <body>
 
-    <h1>Login</h1>
+    <main class="auth-page">
+        <section class="auth-card">
 
-    <?php if ($error !== ''): ?>
-        <p><?= htmlspecialchars($error) ?></p>
-    <?php endif; ?>
+            <div class="auth-logo">
+                <h1>Masar</h1>
+                <p>Plan your academic journey</p>
+            </div>
 
-    <form method="POST" action="">
-        <div>
-            <label for="email">Email</label>
-            <input
-                type="email"
-                id="email"
-                name="email"
-                required
-            >
-        </div>
+            <?php if ($error !== ''): ?>
+                <div class="alert-error">
+                    <?= htmlspecialchars($error) ?>
+                </div>
+            <?php endif; ?>
 
-        <div>
-            <label for="password">Password</label>
-            <input
-                type="password"
-                id="password"
-                name="password"
-                required
-            >
-        </div>
+            <form method="POST" action="">
 
-        <button type="submit">Login</button>
-    </form>
+                <div class="form-group">
+                    <label for="email">Email Address</label>
+
+                    <input
+                        type="email"
+                        id="email"
+                        name="email"
+                        required
+                    >
+                </div>
+
+                <div class="form-group">
+                    <label for="password">Password</label>
+
+                    <input
+                        type="password"
+                        id="password"
+                        name="password"
+                        required
+                    >
+                </div>
+
+                <button
+                    type="submit"
+                    class="btn-primary"
+                >
+                    Login
+                </button>
+
+            </form>
+
+            <div class="auth-footer">
+                Don't have an account?
+
+                <a href="register.php">
+                    Create account
+                </a>
+            </div>
+
+        </section>
+    </main>
 
 </body>
 </html>
