@@ -24,6 +24,11 @@ $pageTitle = $pageTitle ?? 'Masar';
     src="/masar/assets/js/main.js?v=2"
     defer
 ></script>
+
+    <script
+    src="/masar/assets/js/major-selector.js?v=1"
+    defer
+></script>
 </head>
 
 <body>

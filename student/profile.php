@@ -17,8 +17,26 @@ if (!isset($_SESSION['csrf_token'])) {
 $errors = [];
 $success = '';
 
+$faculties = $pdo->query(
+    'SELECT id, name
+     FROM faculties
+     ORDER BY name'
+)->fetchAll();
+
+$majors = $pdo->query(
+    'SELECT id, faculty_id, name
+     FROM majors
+     ORDER BY name'
+)->fetchAll();
+
 $stmt = $pdo->prepare(
-    'SELECT id, full_name, email, university_id, major
+    'SELECT
+        id,
+        full_name,
+        email,
+        university_id,
+        faculty_id,
+        major_id
      FROM users
      WHERE id = :id
      LIMIT 1'
@@ -32,6 +50,7 @@ $user = $stmt->fetch();
 
 if (!$user) {
     session_destroy();
+
     header('Location: ../auth/login.php');
     exit;
 }
@@ -45,7 +64,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     $fullName = trim($_POST['full_name'] ?? '');
     $universityId = trim($_POST['university_id'] ?? '');
-    $major = trim($_POST['major'] ?? '');
+
+    $facultyId = filter_var(
+        $_POST['faculty_id'] ?? null,
+        FILTER_VALIDATE_INT
+    ) ?: 0;
+
+    $majorId = filter_var(
+        $_POST['major_id'] ?? null,
+        FILTER_VALIDATE_INT
+    ) ?: 0;
 
     if ($fullName === '') {
         $errors[] = 'Full name is required.';
@@ -57,8 +85,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $errors[] = 'University ID is too long.';
     }
 
-    if (strlen($major) > 100) {
-        $errors[] = 'Major name is too long.';
+    if ($facultyId <= 0) {
+        $errors[] = 'Please select your faculty.';
+    }
+
+    if ($majorId <= 0) {
+        $errors[] = 'Please select your major.';
+    }
+
+    if ($facultyId > 0 && $majorId > 0) {
+        $stmt = $pdo->prepare(
+            'SELECT id
+             FROM majors
+             WHERE id = :major_id
+               AND faculty_id = :faculty_id
+             LIMIT 1'
+        );
+
+        $stmt->execute([
+            'major_id' => $majorId,
+            'faculty_id' => $facultyId,
+        ]);
+
+        if (!$stmt->fetch()) {
+            $errors[] = 'The selected major does not belong to this faculty.';
+        }
     }
 
     if (empty($errors)) {
@@ -66,7 +117,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'UPDATE users
              SET full_name = :full_name,
                  university_id = :university_id,
-                 major = :major
+                 faculty_id = :faculty_id,
+                 major_id = :major_id
              WHERE id = :id'
         );
 
@@ -75,9 +127,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'university_id' => $universityId !== ''
                 ? $universityId
                 : null,
-            'major' => $major !== ''
-                ? $major
-                : null,
+            'faculty_id' => $facultyId,
+            'major_id' => $majorId,
             'id' => $_SESSION['user_id'],
         ]);
 
@@ -85,7 +136,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         $user['full_name'] = $fullName;
         $user['university_id'] = $universityId;
-        $user['major'] = $major;
+        $user['faculty_id'] = $facultyId;
+        $user['major_id'] = $majorId;
 
         $success = 'Profile updated successfully.';
     }
@@ -138,9 +190,7 @@ require_once __DIR__ . '/../includes/sidebar.php';
             <div class="profile-form-grid">
 
                 <div class="form-group">
-                    <label for="full_name">
-                        Full Name
-                    </label>
+                    <label for="full_name">Full Name</label>
 
                     <input
                         type="text"
@@ -152,9 +202,7 @@ require_once __DIR__ . '/../includes/sidebar.php';
                 </div>
 
                 <div class="form-group">
-                    <label for="email">
-                        Email Address
-                    </label>
+                    <label for="email">Email Address</label>
 
                     <input
                         type="email"
@@ -162,10 +210,6 @@ require_once __DIR__ . '/../includes/sidebar.php';
                         value="<?= htmlspecialchars($user['email']) ?>"
                         disabled
                     >
-
-                    <small class="form-help">
-                        Email cannot be changed from this page.
-                    </small>
                 </div>
 
                 <div class="form-group">
@@ -184,19 +228,45 @@ require_once __DIR__ . '/../includes/sidebar.php';
                 </div>
 
                 <div class="form-group">
-                    <label for="major">
-                        Major
-                    </label>
+                    <label for="faculty_id">Faculty</label>
 
-                    <input
-                        type="text"
-                        id="major"
-                        name="major"
-                        value="<?= htmlspecialchars(
-                            $user['major'] ?? ''
-                        ) ?>"
-                        placeholder="Computer Science"
+                    <select
+                        id="faculty_id"
+                        name="faculty_id"
+                        required
                     >
+                        <option value="">Select Faculty</option>
+
+                        <?php foreach ($faculties as $faculty): ?>
+                            <option
+                                value="<?= (int) $faculty['id'] ?>"
+                                <?= (int) $faculty['id']
+                                    === (int) ($user['faculty_id'] ?? 0)
+                                    ? 'selected'
+                                    : '' ?>
+                            >
+                                <?= htmlspecialchars($faculty['name']) ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label for="major_id">Major</label>
+
+                    <select
+                        id="major_id"
+                        name="major_id"
+                        data-selected-major="<?=
+                            (int) ($user['major_id'] ?? 0)
+                        ?>"
+                        disabled
+                        required
+                    >
+                        <option value="">
+                            Select Faculty First
+                        </option>
+                    </select>
                 </div>
 
             </div>
@@ -213,6 +283,20 @@ require_once __DIR__ . '/../includes/sidebar.php';
     </section>
 
 </main>
+
+<script
+    type="application/json"
+    id="majorsData"
+>
+<?= json_encode(
+    $majors,
+    JSON_UNESCAPED_UNICODE
+    | JSON_HEX_TAG
+    | JSON_HEX_AMP
+    | JSON_HEX_APOS
+    | JSON_HEX_QUOT
+) ?>
+</script>
 
 <?php
 
