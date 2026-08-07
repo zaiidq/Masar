@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../includes/auth_check.php';
 require_once __DIR__ . '/../config/database.php';
+require_once __DIR__ . '/../includes/academic-record-parser.php';
 
 if (($_SESSION['role'] ?? '') !== 'student') {
     header('Location: /masar/admin/dashboard.php');
@@ -158,6 +159,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
             }
         }
+        if (!$errors) {
+              try {
+                   $recordText = extractAcademicRecordPdfText($temporaryPath);
+
+          $recordValidation =
+            validateEnglishMeuAcademicRecord($recordText);
+
+        if (!$recordValidation['valid']) {
+            $errors[] =
+                'The uploaded file could not be recognized as an English '
+                . 'MEU Academic Record. Please download the English version '
+                . 'directly from the university system.';
+        }
+    } catch (Throwable $exception) {
+        $errors[] =
+            'The academic record could not be read. '
+            . 'Please upload the original English PDF from the university system.';
+    }
+}
 
         if (!$errors) {
             $fileHash = hash_file('sha256', $temporaryPath);

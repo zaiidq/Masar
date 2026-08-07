@@ -1,0 +1,75 @@
+<?php
+
+declare(strict_types=1);
+
+use Smalot\PdfParser\Parser;
+
+require_once __DIR__ . '/../vendor/autoload.php';
+
+/**
+ * Extract text from an academic record PDF.
+ */
+function extractAcademicRecordPdfText(string $pdfPath): string
+{
+    if (!is_file($pdfPath)) {
+        throw new RuntimeException('The academic record file was not found.');
+    }
+
+    $parser = new Parser();
+    $pdf = $parser->parseFile($pdfPath);
+
+    $text = trim($pdf->getText());
+
+    if ($text === '') {
+        throw new RuntimeException(
+            'No readable text could be extracted from the PDF.'
+        );
+    }
+
+    $text = str_replace(["\r\n", "\r"], "\n", $text);
+
+    return $text;
+}
+
+/**
+ * Validate that the extracted text belongs to an English MEU Academic Record.
+ */
+function validateEnglishMeuAcademicRecord(string $text): array
+{
+    $markers = [
+        'Middle East University',
+        'Student Id',
+        'Student Name',
+        'Course Code',
+        'Course Name',
+        'Prerequisite',
+        'Crd',
+        'Status',
+        'Plan Hrs',
+        'Remain Hrs',
+        'GPA',
+    ];
+
+    $foundMarkers = [];
+    $missingMarkers = [];
+
+    foreach ($markers as $marker) {
+        if (stripos($text, $marker) !== false) {
+            $foundMarkers[] = $marker;
+        } else {
+            $missingMarkers[] = $marker;
+        }
+    }
+
+    /*
+     * Some labels may be split or reordered during PDF text extraction,
+     * so finding 7 markers is enough for the first validation stage.
+     */
+    $isValid = count($foundMarkers) >= 7;
+
+    return [
+        'valid' => $isValid,
+        'found_markers' => $foundMarkers,
+        'missing_markers' => $missingMarkers,
+    ];
+}
