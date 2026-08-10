@@ -790,3 +790,10 @@ body {
         padding: 16px;
     }
 }
+.recommendations-upload-btn {
+    display: inline-block;
+    width: auto;
+    margin-top: 18px;
+    padding: 10px 18px;
+    text-decoration: none;
+}

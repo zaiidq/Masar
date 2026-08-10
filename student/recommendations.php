@@ -101,7 +101,7 @@ require_once __DIR__ . '/../includes/sidebar.php';
             </p>
 
             <a
-                class="btn-primary"
+                class="btn-primary recommendations-upload-btn"
                 href="/masar/student/academic-record.php"
             >
                 Upload Academic Record
