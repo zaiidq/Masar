@@ -5,6 +5,7 @@ declare(strict_types=1);
 require_once __DIR__ . '/../includes/auth_check.php';
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../includes/academic-record-parser.php';
+require_once __DIR__ . '/../includes/academic-record-analyzer.php';
 
 if (($_SESSION['role'] ?? '') !== 'student') {
     header('Location: /masar/admin/dashboard.php');
