@@ -70,35 +70,103 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     ) {
         $errors[] = 'Invalid request. Please refresh the page and try again.';
     }
+    $action = $_POST['action'] ?? 'upload_record';
 
-    $uploadedFile = $_FILES['academic_record'] ?? null;
+if (!$errors && $action === 'retry_analysis') {
+    $recordId = (int) ($_POST['record_id'] ?? 0);
 
-    if (!$errors) {
-        if (!is_array($uploadedFile)) {
-            $errors[] = 'Please select an academic record PDF.';
+    $retryStatement = $pdo->prepare(
+        'SELECT id, user_id, file_path, status
+         FROM academic_records
+         WHERE id = :id
+           AND user_id = :user_id
+         LIMIT 1'
+    );
+
+    $retryStatement->execute([
+        'id' => $recordId,
+        'user_id' => $userId,
+    ]);
+
+    $retryRecord = $retryStatement->fetch();
+
+    if (!$retryRecord) {
+        $errors[] = 'The academic record could not be found.';
+    } elseif ($retryRecord['status'] !== 'failed') {
+        $errors[] = 'Only failed analyses can be retried.';
+    } else {
+        $pdfPath =
+            dirname(__DIR__)
+            . DIRECTORY_SEPARATOR
+            . str_replace(
+                '/',
+                DIRECTORY_SEPARATOR,
+                $retryRecord['file_path']
+            );
+
+        if (!is_file($pdfPath)) {
+            $errors[] = 'The uploaded academic record file could not be found.';
         } else {
-            $uploadError = (int) ($uploadedFile['error'] ?? UPLOAD_ERR_NO_FILE);
+            try {
+                analyzeAcademicRecord(
+                    $pdo,
+                    $recordId,
+                    $userId,
+                    $pdfPath
+                );
 
-            if ($uploadError !== UPLOAD_ERR_OK) {
-                $errors[] = match ($uploadError) {
-                    UPLOAD_ERR_INI_SIZE,
-                    UPLOAD_ERR_FORM_SIZE =>
-                        'The selected file is larger than the allowed size.',
+                $_SESSION['academic_record_success'] =
+                    'Your academic record was analyzed successfully.';
 
-                    UPLOAD_ERR_PARTIAL =>
-                        'The file was only partially uploaded. Please try again.',
+                header(
+                    'Location: /masar/student/academic-record.php'
+                );
+                exit;
+            } catch (Throwable $exception) {
+                markAnalysisFailed(
+                    $pdo,
+                    $recordId,
+                    $exception->getMessage()
+                );
 
-                    UPLOAD_ERR_NO_FILE =>
-                        'Please select an academic record PDF.',
-
-                    default =>
-                        'The file could not be uploaded. Please try again.',
-                };
+                $errors[] =
+                    'The analysis failed again. Please try again later.';
             }
         }
     }
+}
 
-    if (!$errors && is_array($uploadedFile)) {
+    $uploadedFile = $_FILES['academic_record'] ?? null;
+
+if (!$errors && $action === 'upload_record') {
+    if (!is_array($uploadedFile)) {
+        $errors[] = 'Please select an academic record PDF.';
+    } else {
+        $uploadError = (int) ($uploadedFile['error'] ?? UPLOAD_ERR_NO_FILE);
+
+        if ($uploadError !== UPLOAD_ERR_OK) {
+            $errors[] = match ($uploadError) {
+                UPLOAD_ERR_INI_SIZE,
+                UPLOAD_ERR_FORM_SIZE =>
+                    'The selected file is larger than the allowed size.',
+
+                UPLOAD_ERR_PARTIAL =>
+                    'The file was only partially uploaded. Please try again.',
+
+                UPLOAD_ERR_NO_FILE =>
+                    'Please select an academic record PDF.',
+
+                default =>
+                    'The file could not be uploaded. Please try again.',
+            };
+        }
+    }
+}
+
+    if (
+    !$errors
+    && $action === 'upload_record'
+    && is_array($uploadedFile)) {
         $originalName = basename((string) $uploadedFile['name']);
         $temporaryPath = (string) $uploadedFile['tmp_name'];
         $fileSize = (int) $uploadedFile['size'];
@@ -439,6 +507,12 @@ require_once __DIR__ . '/../includes/sidebar.php';
                     name="csrf_token"
                     value="<?= escape($_SESSION['csrf_token']) ?>"
                 >
+                <input
+                    type="hidden"
+                    name="action"
+                    value="upload_record"
+                >   
+                
 
                 <div class="form-group">
                     <label for="academic_record">
@@ -482,6 +556,7 @@ require_once __DIR__ . '/../includes/sidebar.php';
                             <th>Status</th>
                             <th>Current</th>
                             <th>Uploaded At</th>
+                            <th>Actions</th>
                         </tr>
                     </thead>
 
@@ -527,6 +602,38 @@ require_once __DIR__ . '/../includes/sidebar.php';
                                         )
                                     ) ?>
                                 </td>
+                                <td>
+    <?php if ($record['status'] === 'failed'): ?>
+        <form method="POST">
+            <input
+                type="hidden"
+                name="csrf_token"
+                value="<?= escape($_SESSION['csrf_token']) ?>"
+            >
+
+            <input
+                type="hidden"
+                name="action"
+                value="retry_analysis"
+            >
+
+            <input
+                type="hidden"
+                name="record_id"
+                value="<?= (int) $record['id'] ?>"
+            >
+
+            <button
+                type="submit"
+                class="btn-retry-analysis"
+            >
+                Retry Analysis
+            </button>
+        </form>
+    <?php else: ?>
+        —
+    <?php endif; ?>
+</td>
                             </tr>
 
                             <?php if (
@@ -534,7 +641,7 @@ require_once __DIR__ . '/../includes/sidebar.php';
                                 && !empty($record['analysis_error'])
                             ): ?>
                                 <tr>
-                                    <td colspan="5">
+                                    <td colspan="6">
                                         <strong>Analysis error:</strong>
                                         <?= escape($record['analysis_error']) ?>
                                     </td>
