@@ -604,6 +604,53 @@ function normaliseCourse(array $raw): ?array
         'completion_state' => $state,
     ];
 }
+/**
+ * Override recommendation-critical AI fields with facts extracted
+ * directly from the PDF.
+ *
+ * Gemini is still used for descriptive information, while academic
+ * status and eligibility facts come from the source document.
+ *
+ * @param array<string, mixed> $course
+ * @param array<string, mixed>|null $fact
+ * @return array<string, mixed>
+ */
+function mergeCourseWithDeterministicFacts(
+    array $course,
+    ?array $fact
+): array {
+    if ($fact === null) {
+        return $course;
+    }
+
+    $course['prerequisite_codes'] =
+        $fact['prerequisite_codes'];
+
+    if (
+        $fact['credit_hours'] !== null
+        && (int) $fact['credit_hours'] > 0
+    ) {
+        $course['credit_hours'] =
+            (int) $fact['credit_hours'];
+    }
+
+    /*
+     * A null mark from the PDF is meaningful:
+     * the student has no recorded mark for that course.
+     */
+    $course['mark'] = $fact['mark'];
+
+    $course['result'] =
+        $fact['result'];
+
+    $course['is_current_semester'] =
+        $fact['is_current_semester'] ? 1 : 0;
+
+    $course['completion_state'] =
+        $fact['completion_state'];
+
+    return $course;
+}
 
 /**
  * Run the full analysis pipeline for one uploaded record.
@@ -660,23 +707,30 @@ function analyzeAcademicRecord(
 
         $course = normaliseCourse($rawCourse);
 
-        if ($course === null) {
-            continue;
-        }
+if ($course === null) {
+    continue;
+}
 
-        /* Duplicate codes would break the unique key; keep the first. */
-        if (isset($coursesByCode[$course['course_code']])) {
-            continue;
-        }
+$courseCode = $course['course_code'];
 
-        $courses[] = $course;
-        $coursesByCode[$course['course_code']] = $course;
+$course = mergeCourseWithDeterministicFacts(
+    $course,
+    $deterministicFacts[$courseCode] ?? null
+);
+
+/* Duplicate codes would break the unique key; keep the first. */
+if (isset($coursesByCode[$courseCode])) {
+    continue;
+}
+
+$courses[] = $course;
+$coursesByCode[$courseCode] = $course;
     }
 
     $recommendations = validateRecommendations(
-    (array) ($result['recommended_courses'] ?? []),
-    $deterministicFacts,
-    $coursesByCode
+        (array) ($result['recommended_courses'] ?? []),
+      $deterministicFacts,
+      $coursesByCode
 );
 
     $pdo->beginTransaction();

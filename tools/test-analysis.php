@@ -145,26 +145,88 @@ echo 'Courses extracted: ', count($courses), "\n";
 echo 'GPA: ', $summary['gpa'] ?? '?', "\n";
 echo 'Remaining hours: ', $summary['remaining_hours'] ?? '?', "\n\n";
 
-$states = [];
-
-foreach ($courses as $course) {
-    $state = $course['completion_state'] ?? 'unknown';
-    $states[$state] = ($states[$state] ?? 0) + 1;
-}
-
-foreach ($states as $state => $count) {
-    echo str_pad($state, 14), $count, "\n";
-}
-
-/* Run the same deterministic checks the web app applies. */
+$geminiStates = [];
+$validatedStates = [];
+$stateMismatches = [];
 $coursesByCode = [];
 
 foreach ($courses as $course) {
-    $normalised = normaliseCourse((array) $course);
-
-    if ($normalised !== null) {
-        $coursesByCode[$normalised['course_code']] = $normalised;
+    if (!is_array($course)) {
+        continue;
     }
+
+    $normalised = normaliseCourse($course);
+
+    if ($normalised === null) {
+        continue;
+    }
+
+    $courseCode = $normalised['course_code'];
+    $geminiState = $normalised['completion_state'];
+
+    /*
+     * Count Gemini's original interpretation before PHP corrects it.
+     */
+    $geminiStates[$geminiState] =
+        ($geminiStates[$geminiState] ?? 0) + 1;
+
+    $fact = $deterministicFacts[$courseCode] ?? null;
+
+    /*
+     * Record disagreements between Gemini and the PDF ground truth.
+     */
+    if (
+        $fact !== null
+        && $geminiState !== $fact['completion_state']
+    ) {
+        $stateMismatches[] = [
+            'course_code' => $courseCode,
+            'gemini_state' => $geminiState,
+            'pdf_state' => $fact['completion_state'],
+        ];
+    }
+
+    /*
+     * Apply the same merge used by the web application.
+     */
+    $merged = mergeCourseWithDeterministicFacts(
+        $normalised,
+        $fact
+    );
+
+    $validatedState = $merged['completion_state'];
+
+    $validatedStates[$validatedState] =
+        ($validatedStates[$validatedState] ?? 0) + 1;
+
+    $coursesByCode[$courseCode] = $merged;
+}
+
+echo "=== Gemini raw states ===\n\n";
+
+foreach ($geminiStates as $state => $count) {
+    echo str_pad($state, 14), $count, "\n";
+}
+
+echo "\n=== Gemini vs PDF validation ===\n\n";
+
+echo 'State mismatches: ',
+     count($stateMismatches),
+     "\n";
+
+foreach ($stateMismatches as $mismatch) {
+    echo $mismatch['course_code'],
+         ' | Gemini=',
+         $mismatch['gemini_state'],
+         ' | PDF=',
+         $mismatch['pdf_state'],
+         "\n";
+}
+
+echo "\n=== Validated course states ===\n\n";
+
+foreach ($validatedStates as $state => $count) {
+    echo str_pad($state, 14), $count, "\n";
 }
 
 $recommendations = validateRecommendations(
