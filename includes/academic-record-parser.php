@@ -130,19 +130,116 @@ function extractAcademicRecordRows(string $pdfPath): string
  */
 function redactAcademicRecordText(string $text): string
 {
+    $lines = preg_split('/\R/u', $text) ?: [];
+    $redactedLines = [];
+
+    /*
+     * Some PDF fields have their value on the following visual row.
+     * When that happens, redact the next non-empty line as well.
+     */
+    $redactNextValue = false;
+
+    $sensitiveLabelPattern =
+        '/\b(Student\s*Id|Student\s*Name|Advisor\s*Name|'
+        . 'User\s*Name|Nationality)\b/i';
+
+    /*
+     * If the next line is clearly another academic field or a course row,
+     * it is not the value of the previous sensitive field.
+     */
+    $structuredLinePattern =
+        '/(?:'
+        . 'Student\s*Id|Student\s*Name|Advisor\s*Name|User\s*Name|'
+        . 'Nationality|Join\s*Semester|Faculty|Major|Degree|Plan\s*Type|'
+        . 'Edition|Status|Study\s*Type|Thesis|Equivalent\s*Hrs|'
+        . 'University\s+Requirement|Faculty\s+Requirement|'
+        . 'Major\s+Requirement|Supportive\s+Requirement|'
+        . 'Orientation\s+Requirement|Course\s+(?:Code|Name)'
+        . ')|^\d{7}\s*\|/i';
+
     $replacements = [
-        '/(Student\s*Id\s*\|?\s*:?).*/im' => '$1 [REDACTED]',
-        '/(Student\s*Name\s*\|?\s*:?).*/im' => '$1 [REDACTED]',
-        '/(Advisor\s*Name\s*\|?\s*:?).*/im' => '$1 [REDACTED]',
-        '/(User\s*Name\s*\|?\s*:?).*/im' => '$1 [REDACTED]',
-        '/(Nationality\s*\|?\s*:?).*/im' => '$1 [REDACTED]',
+        '/(Student\s*Id\s*\|?\s*:?).*/i' =>
+            '$1 [REDACTED]',
+
+        '/(Student\s*Name\s*\|?\s*:?).*/i' =>
+            '$1 [REDACTED]',
+
+        '/(Advisor\s*Name\s*\|?\s*:?).*/i' =>
+            '$1 [REDACTED]',
+
+        '/(User\s*Name\s*\|?\s*:?).*/i' =>
+            '$1 [REDACTED]',
+
+        '/(Nationality\s*\|?\s*:?).*/i' =>
+            '$1 [REDACTED]',
     ];
 
-    return (string) preg_replace(
-        array_keys($replacements),
-        array_values($replacements),
-        $text
-    );
+    foreach ($lines as $line) {
+        $trimmedLine = trim($line);
+
+        /*
+         * Redact a value that was placed on the row after its label.
+         */
+        if ($redactNextValue && $trimmedLine !== '') {
+            if (
+                preg_match(
+                    $structuredLinePattern,
+                    $trimmedLine
+                ) !== 1
+            ) {
+                $redactedLines[] = '[REDACTED]';
+                $redactNextValue = false;
+                continue;
+            }
+
+            /*
+             * The next row is another known field, so the previous field
+             * did not have a separate value row.
+             */
+            $redactNextValue = false;
+        }
+
+        /*
+         * Before replacing the line, determine whether the sensitive field
+         * actually had a value after its label on this same row.
+         */
+        if (
+            preg_match(
+                $sensitiveLabelPattern,
+                $line,
+                $match,
+                PREG_OFFSET_CAPTURE
+            ) === 1
+        ) {
+            $label = $match[0][0];
+            $labelOffset = $match[0][1];
+
+            $afterLabel = substr(
+                $line,
+                $labelOffset + strlen($label)
+            );
+
+            $afterLabel = (string) preg_replace(
+                '/^[\s|:]*/',
+                '',
+                $afterLabel
+            );
+
+            if (trim($afterLabel) === '') {
+                $redactNextValue = true;
+            }
+        }
+
+        $line = (string) preg_replace(
+            array_keys($replacements),
+            array_values($replacements),
+            $line
+        );
+
+        $redactedLines[] = $line;
+    }
+
+    return implode("\n", $redactedLines);
 }
 
 /**

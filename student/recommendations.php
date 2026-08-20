@@ -63,12 +63,6 @@ if ($record) {
     }
 }
 
-$stateLabels = [
-    'completed' => 'Completed',
-    'in_progress' => 'In Progress',
-    'failed' => 'Needs Retake',
-    'remaining' => 'Remaining',
-];
 
 $totalRecommendedHours = array_sum(
     array_column($recommendations, 'credit_hours')
@@ -112,21 +106,39 @@ require_once __DIR__ . '/../includes/sidebar.php';
 
         <section class="dashboard-grid">
 
-            <?php foreach ($stateLabels as $state => $label): ?>
-                <article class="dashboard-card">
-                    <h3><?= escapeValue($label) ?></h3>
+    <article class="dashboard-card">
+        <h3>Completed</h3>
+        <p>
+            <?= (int) ($progress['completed']['course_count'] ?? 0) ?>
+            courses
+        </p>
+    </article>
 
-                    <p>
-                        <?= (int) ($progress[$state]['course_count'] ?? 0) ?>
-                        courses
-                        &middot;
-                        <?= (int) ($progress[$state]['credit_hours'] ?? 0) ?>
-                        credit hours
-                    </p>
-                </article>
-            <?php endforeach; ?>
+    <article class="dashboard-card">
+        <h3>In Progress</h3>
+        <p>
+            <?= (int) ($progress['in_progress']['course_count'] ?? 0) ?>
+            courses
+        </p>
+    </article>
 
-        </section>
+    <article class="dashboard-card">
+        <h3>Failed Courses</h3>
+        <p>
+            <?= (int) ($progress['failed']['course_count'] ?? 0) ?>
+            courses
+        </p>
+    </article>
+
+    <article class="dashboard-card">
+        <h3>Remaining to Graduate</h3>
+        <p>
+            <?= (int) ($record['remaining_hours'] ?? 0) ?>
+            credit hours
+        </p>
+    </article>
+
+</section>
 
         <section class="content-card">
             <h2>Academic Summary</h2>
