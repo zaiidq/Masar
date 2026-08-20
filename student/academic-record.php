@@ -108,6 +108,7 @@ if (!$errors && $action === 'retry_analysis') {
             $errors[] = 'The uploaded academic record file could not be found.';
         } else {
             try {
+                set_time_limit(120);
                 analyzeAcademicRecord(
                     $pdo,
                     $recordId,
@@ -351,11 +352,38 @@ if (!$errors && $action === 'upload_record') {
                         'is_current' => 0,
                     ]);
 
-                    $_SESSION['academic_record_success'] =
-                        'Your academic record was uploaded successfully.';
+                    $recordId = (int) $pdo->lastInsertId();
 
-                    header('Location: /masar/student/academic-record.php');
-                    exit;
+try {
+    /*
+     * Gemini currently takes around one minute on our test record,
+     * so allow enough time for the synchronous analysis.
+     */
+    set_time_limit(120);
+
+    analyzeAcademicRecord(
+        $pdo,
+        $recordId,
+        $userId,
+        $destinationPath
+    );
+
+    $_SESSION['academic_record_success'] =
+        'Your academic record was uploaded and analyzed successfully.';
+} catch (Throwable $analysisException) {
+    markAnalysisFailed(
+        $pdo,
+        $recordId,
+        $analysisException->getMessage()
+    );
+
+    $_SESSION['academic_record_success'] =
+        'Your academic record was uploaded, but the analysis failed. '
+        . 'Use Retry Analysis from the record history to try again.';
+}
+
+header('Location: /masar/student/academic-record.php');
+exit;
                 } catch (PDOException $exception) {
                     if (is_file($destinationPath)) {
                         unlink($destinationPath);
