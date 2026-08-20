@@ -9,7 +9,7 @@ require_once __DIR__ . '/gemini-client.php';
  * Bump this whenever the prompt or schema below changes.
  * Stored per record so past analyses stay explainable.
  */
-const MASAR_PROMPT_VERSION = 'v1';
+const MASAR_PROMPT_VERSION = 'v2';
 
 /**
  * Instructions given to the model on every analysis.
@@ -49,7 +49,10 @@ For recommendations, choose courses for the NEXT semester only:
 - Every prerequisite of the course must be "completed".
 - Prefer courses that unlock the most later courses, courses the student
   failed and should retake, and courses required for graduation.
-- Suggest between 4 and 6 courses, not exceeding 18 credit hours total.
+- Suggest up to 6 courses.
+- Aim for 4 to 6 courses only when that many valid eligible courses exist.
+- Never invent or include an ineligible course just to reach a target count.
+- Do not exceed 18 credit hours total.
 - Give each one a short, factual reason in English referring to the
   student's actual record.
 
@@ -146,6 +149,263 @@ function academicRecordResponseSchema(): array
         ],
     ];
 }
+/**
+ * Extract recommendation-critical facts directly from the reconstructed
+ * PDF rows, independently from Gemini.
+ *
+ * @return array<string, array<string, mixed>>
+ */
+function extractDeterministicCourseFacts(string $rows): array
+{
+    $facts = [];
+    $lines = preg_split('/\R/u', $rows) ?: [];
+
+    $inIncompleteCourses = false;
+    $pendingPrerequisites = [];
+
+    foreach ($lines as $line) {
+        $line = trim($line);
+
+        if ($line === '') {
+            continue;
+        }
+
+        if (stripos($line, 'Incomplete Courses') !== false) {
+            $inIncompleteCourses = true;
+            $pendingPrerequisites = [];
+            continue;
+        }
+
+        /*
+         * Some prerequisites are rendered on a separate line immediately
+         * before the course row, for example:
+         *
+         * (0161100)
+         * 0161101 | Arabic Communication Skills | ...
+         */
+        if (
+            preg_match(
+                '/^\(\s*(\d{7}(?:\s*&\s*\d{7})*)\s*\)$/',
+                $line,
+                $prerequisiteMatch
+            )
+        ) {
+            preg_match_all(
+                '/\d{7}/',
+                $prerequisiteMatch[1],
+                $prerequisiteCodes
+            );
+
+            $pendingPrerequisites =
+                array_values(
+                    array_unique($prerequisiteCodes[0] ?? [])
+                );
+
+            continue;
+        }
+
+        /*
+         * A real course row must START with the course code.
+         * This prevents standalone prerequisite lines from being treated
+         * as courses.
+         */
+        if (
+            !preg_match(
+                '/^(\d{7})\s*\|/',
+                $line,
+                $courseMatch
+            )
+        ) {
+            continue;
+        }
+
+        $courseCode = $courseMatch[1];
+
+        /*
+         * Extract prerequisites that appear inside the same row.
+         */
+        $prerequisites = [];
+
+        preg_match_all(
+            '/\(([^)]*)\)/',
+            $line,
+            $parenthesizedGroups
+        );
+
+        foreach ($parenthesizedGroups[1] ?? [] as $group) {
+            preg_match_all(
+                '/\d{7}/',
+                $group,
+                $codes
+            );
+
+            foreach ($codes[0] ?? [] as $code) {
+                if ($code !== $courseCode) {
+                    $prerequisites[] = $code;
+                }
+            }
+        }
+
+        $prerequisites =
+            array_values(array_unique($prerequisites));
+
+        /*
+         * If no prerequisite was reconstructed on the same line,
+         * use the standalone prerequisite line immediately above it.
+         */
+        if (
+            $prerequisites === []
+            && $pendingPrerequisites !== []
+        ) {
+            $prerequisites = $pendingPrerequisites;
+        }
+
+        $pendingPrerequisites = [];
+
+        $columns = array_map(
+            'trim',
+            explode('|', $line)
+        );
+
+        $creditHours = null;
+
+        foreach ($columns as $column) {
+            if (preg_match('/^[1-6]$/', $column)) {
+                $creditHours = (int) $column;
+                break;
+            }
+        }
+
+        $mark = null;
+
+        foreach ($columns as $column) {
+            if (
+                preg_match(
+                    '/^(A[+-]?|B[+-]?|C[+-]?|D[+-]?|F|\?\?)$/i',
+                    $column
+                )
+            ) {
+                $mark = strtoupper($column);
+                break;
+            }
+        }
+
+        $result = 'none';
+
+        if (preg_match('/\bExempted\b/i', $line)) {
+            $result = 'exempted';
+        } elseif (preg_match('/\bPass\b/i', $line)) {
+            $result = 'pass';
+        } elseif (preg_match('/\bFail\b/i', $line)) {
+            $result = 'fail';
+        }
+
+        $isCurrentSemester =
+            preg_match(
+                '/(?:^|\|)\s*X\s*(?:\||$)/i',
+                $line
+            ) === 1;
+
+        if ($inIncompleteCourses) {
+            $result = 'incomplete';
+            $completionState = 'failed';
+            $source = 'incomplete_courses';
+        } elseif (
+            $result === 'pass'
+            || $result === 'exempted'
+        ) {
+            $completionState = 'completed';
+            $source = 'main_table';
+        } elseif ($result === 'fail') {
+            $completionState = 'failed';
+            $source = 'main_table';
+        } elseif ($isCurrentSemester) {
+            $completionState = 'in_progress';
+            $source = 'main_table';
+        } else {
+            $completionState = 'remaining';
+            $source = 'main_table';
+        }
+
+        $fact = [
+            'course_code' => $courseCode,
+            'prerequisite_codes' => $prerequisites,
+            'credit_hours' => $creditHours,
+            'mark' => $mark,
+            'result' => $result,
+            'is_current_semester' => $isCurrentSemester,
+            'completion_state' => $completionState,
+            'source' => $source,
+            'source_conflict' => false,
+        ];
+
+        if (!isset($facts[$courseCode])) {
+            $facts[$courseCode] = $fact;
+            continue;
+        }
+
+        $existing = $facts[$courseCode];
+
+        $hasConflict =
+            (
+                $existing['mark'] !== null
+                && $mark !== null
+                && $existing['mark'] !== $mark
+            )
+            || (
+                $existing['completion_state']
+                !== $completionState
+            );
+
+        /*
+         * The dedicated Incomplete Courses section is treated as the more
+         * specific source when it conflicts with the general course table.
+         */
+        if ($source === 'incomplete_courses') {
+            if ($fact['prerequisite_codes'] === []) {
+                $fact['prerequisite_codes'] =
+                    $existing['prerequisite_codes'];
+            }
+
+            if ($fact['credit_hours'] === null) {
+                $fact['credit_hours'] =
+                    $existing['credit_hours'];
+            }
+
+            $fact['source_conflict'] =
+                $hasConflict
+                || !empty($existing['source_conflict']);
+
+            $facts[$courseCode] = $fact;
+        } else {
+            /*
+             * Preserve any useful data missing from the first observation.
+             */
+            if (
+                $facts[$courseCode]['prerequisite_codes'] === []
+                && $prerequisites !== []
+            ) {
+                $facts[$courseCode]['prerequisite_codes'] =
+                    $prerequisites;
+            }
+
+            if (
+                $facts[$courseCode]['credit_hours'] === null
+                && $creditHours !== null
+            ) {
+                $facts[$courseCode]['credit_hours'] =
+                    $creditHours;
+            }
+
+            $facts[$courseCode]['source_conflict'] =
+                $hasConflict
+                || !empty($existing['source_conflict']);
+        }
+    }
+
+    return $facts;
+}
+
 
 /**
  * Deterministic checks applied to the model's suggestions.
@@ -160,10 +420,13 @@ function academicRecordResponseSchema(): array
  */
 function validateRecommendations(
     array $recommendations,
+    array $deterministicFacts,
     array $coursesByCode
 ): array {
     $validated = [];
     $priority = 0;
+    $acceptedHours = 0;
+    $maximumHours = 18;
 
     foreach ($recommendations as $recommendation) {
         $code = trim((string) ($recommendation['course_code'] ?? ''));
@@ -173,31 +436,46 @@ function validateRecommendations(
         }
 
         $priority++;
-
         $rejection = null;
 
-        /* Rule 1: the course must exist in this student's record. */
-        if (!isset($coursesByCode[$code])) {
-            $rejection = 'Course is not part of the uploaded academic record.';
+        /*
+         * Gemini data is used only for display information such as the
+         * course name. Academic eligibility comes from deterministic facts.
+         */
+        $aiCourse = $coursesByCode[$code] ?? null;
+        $fact = $deterministicFacts[$code] ?? null;
+
+        /*
+         * Rule 1: the course must really exist in the uploaded PDF.
+         */
+        if ($fact === null) {
+            $rejection =
+                'Course is not part of the uploaded academic record.';
         }
 
-        $course = $coursesByCode[$code] ?? null;
-
-        /* Rule 2: the student must not have already completed it. */
-        if ($rejection === null && $course !== null) {
-            if ($course['completion_state'] === 'completed') {
+        /*
+         * Rule 2: do not recommend completed or currently registered courses.
+         */
+        if ($rejection === null && $fact !== null) {
+            if ($fact['completion_state'] === 'completed') {
                 $rejection = 'Course has already been completed.';
-            } elseif ($course['completion_state'] === 'in_progress') {
-                $rejection = 'Course is already registered this semester.';
+            } elseif ($fact['completion_state'] === 'in_progress') {
+                $rejection =
+                    'Course is already registered this semester.';
             }
         }
 
-        /* Rule 3: every prerequisite must be completed. */
-        if ($rejection === null && $course !== null) {
+        /*
+         * Rule 3: every prerequisite must be deterministically completed.
+         */
+        if ($rejection === null && $fact !== null) {
             $unmet = [];
 
-            foreach ($course['prerequisite_codes'] as $prerequisiteCode) {
-                $prerequisite = $coursesByCode[$prerequisiteCode] ?? null;
+            foreach (
+                $fact['prerequisite_codes'] as $prerequisiteCode
+            ) {
+                $prerequisite =
+                    $deterministicFacts[$prerequisiteCode] ?? null;
 
                 if (
                     $prerequisite === null
@@ -208,17 +486,48 @@ function validateRecommendations(
             }
 
             if ($unmet !== []) {
-                $rejection = 'Unmet prerequisite: ' . implode(', ', $unmet);
+                $rejection =
+                    'Unmet prerequisite: '
+                    . implode(', ', $unmet);
             }
+        }
+
+        $creditHours = (int) ($fact['credit_hours'] ?? 0);
+
+        /*
+         * Rule 4: credit hours must be verifiable from the source PDF.
+         */
+        if ($rejection === null && $creditHours <= 0) {
+            $rejection =
+                'Course credit hours could not be verified.';
+        }
+
+        /*
+         * Rule 5: accepted recommendations may not exceed 18 hours.
+         * Gemini determines priority; PHP guarantees the limit.
+         */
+        if (
+            $rejection === null
+            && ($acceptedHours + $creditHours) > $maximumHours
+        ) {
+            $rejection =
+                'Exceeds the 18-credit-hour recommendation limit.';
+        }
+
+        if ($rejection === null) {
+            $acceptedHours += $creditHours;
         }
 
         $validated[] = [
             'course_code' => $code,
-            'course_name' => $course['course_name'] ?? $code,
-            'credit_hours' => (int) ($course['credit_hours'] ?? 0),
+            'course_name' =>
+                $aiCourse['course_name'] ?? $code,
+            'credit_hours' => $creditHours,
             'priority' => $priority,
             'reason' => mb_substr(
-                trim((string) ($recommendation['reason'] ?? '')),
+                trim(
+                    (string) ($recommendation['reason'] ?? '')
+                ),
                 0,
                 500
             ),
@@ -318,6 +627,10 @@ function analyzeAcademicRecord(
     )->execute(['id' => $recordId]);
 
     $rows = extractAcademicRecordRows($pdfPath);
+    
+    $deterministicFacts =
+        extractDeterministicCourseFacts($rows);
+
     $redacted = redactAcademicRecordText($rows);
 
     $model = env('GEMINI_MODEL', 'gemini-2.5-flash');
@@ -361,9 +674,10 @@ function analyzeAcademicRecord(
     }
 
     $recommendations = validateRecommendations(
-        (array) ($result['recommended_courses'] ?? []),
-        $coursesByCode
-    );
+    (array) ($result['recommended_courses'] ?? []),
+    $deterministicFacts,
+    $coursesByCode
+);
 
     $pdo->beginTransaction();
 

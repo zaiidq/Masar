@@ -51,6 +51,66 @@ if ($validation['missing_markers'] !== []) {
          implode(', ', $validation['missing_markers']),
          "\n";
 }
+echo "\n=== Deterministic course facts ===\n\n";
+
+$deterministicFacts = extractDeterministicCourseFacts($rows);
+
+echo 'Courses detected: ', count($deterministicFacts), "\n\n";
+
+$stateCounts = [
+    'completed' => 0,
+    'in_progress' => 0,
+    'failed' => 0,
+    'remaining' => 0,
+];
+
+$conflictCount = 0;
+
+foreach ($deterministicFacts as $fact) {
+    $state = $fact['completion_state'];
+
+    if (isset($stateCounts[$state])) {
+        $stateCounts[$state]++;
+    }
+
+    if (!empty($fact['source_conflict'])) {
+        $conflictCount++;
+    }
+}
+
+foreach ($stateCounts as $state => $count) {
+    echo str_pad($state, 14), $count, "\n";
+}
+
+echo 'conflicts     ', $conflictCount, "\n";
+
+echo "\n=== Failed / conflict courses ===\n\n";
+
+foreach ($deterministicFacts as $fact) {
+    if (
+        $fact['completion_state'] !== 'failed'
+        && empty($fact['source_conflict'])
+    ) {
+        continue;
+    }
+
+    echo $fact['course_code'];
+    echo ' | state=', $fact['completion_state'];
+    echo ' | mark=', $fact['mark'] ?? '-';
+    echo ' | hours=', $fact['credit_hours'] ?? '-';
+    echo ' | source=', $fact['source'];
+
+    if (!empty($fact['source_conflict'])) {
+        echo ' | CONFLICT';
+    }
+
+    if ($fact['prerequisite_codes'] !== []) {
+        echo ' | prereq=',
+             implode(',', $fact['prerequisite_codes']);
+    }
+
+    echo "\n";
+}
 
 if (!$callGemini) {
     echo "\nPass --gemini to also run the AI analysis.\n";
@@ -109,6 +169,7 @@ foreach ($courses as $course) {
 
 $recommendations = validateRecommendations(
     (array) ($result['recommended_courses'] ?? []),
+    $deterministicFacts,
     $coursesByCode
 );
 
