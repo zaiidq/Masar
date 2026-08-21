@@ -28,8 +28,8 @@
             My Profile
         </a>
 
-        <a href="/masar/student/academic-plan.php">
-            Academic Plan
+        <a href="/masar/student/academic-record.php">
+            Academic Record
         </a>
 
         <a href="/masar/student/recommendations.php">
@@ -44,13 +44,11 @@
             University Links
         </a>
 
-        <a href="/masar/student/marketplace.php">
-            Marketplace
-        </a>
-
         <a href="/masar/student/chatbot.php">
             AI Assistant
         </a>
+        
+
 
     </nav>
 

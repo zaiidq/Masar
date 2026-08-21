@@ -29,11 +29,7 @@
         <a href="/masar/admin/university-links.php">
             University Links
         </a>
-
-        <a href="#">
-            Marketplace Moderation
-        </a>
-
+        
         <a href="#">
             Users
         </a>

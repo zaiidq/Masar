@@ -652,3 +652,156 @@ body {
         flex-direction: column;
     }
 }
+.academic-record-page {
+    padding: 24px;
+}
+
+.academic-record-page .page-heading {
+    margin-bottom: 24px;
+}
+
+.academic-record-page .page-heading h1 {
+    margin-bottom: 6px;
+}
+
+.academic-record-page .page-heading p {
+    margin: 0;
+    color: #667085;
+}
+
+.academic-record-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 20px;
+    margin-bottom: 20px;
+}
+
+.academic-record-card {
+    background: #ffffff;
+    border: 1px solid #e4e7ec;
+    border-radius: 12px;
+    padding: 22px;
+}
+
+.academic-record-card h2 {
+    margin-top: 0;
+    margin-bottom: 16px;
+}
+
+.upload-instructions {
+    color: #475467;
+    line-height: 1.6;
+}
+
+.academic-record-form .form-group {
+    margin-bottom: 18px;
+}
+
+.academic-record-form label {
+    display: block;
+    font-weight: 600;
+    margin-bottom: 8px;
+}
+
+.academic-record-form input[type="file"] {
+    display: block;
+    width: 100%;
+    padding: 12px;
+    border: 1px solid #d0d5dd;
+    border-radius: 8px;
+    background: #ffffff;
+}
+
+.academic-record-form small {
+    display: block;
+    margin-top: 8px;
+    color: #667085;
+}
+
+.record-summary p {
+    margin: 10px 0;
+}
+
+.empty-state {
+    padding: 18px;
+    background: #f9fafb;
+    border-radius: 8px;
+    color: #667085;
+}
+
+.record-history-card {
+    width: 100%;
+}
+
+.table-responsive {
+    overflow-x: auto;
+}
+
+.record-history-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.record-history-table th,
+.record-history-table td {
+    padding: 12px;
+    text-align: left;
+    border-bottom: 1px solid #e4e7ec;
+}
+
+.record-history-table th {
+    background: #f9fafb;
+}
+
+.record-status {
+    display: inline-block;
+    padding: 5px 9px;
+    border-radius: 20px;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.record-status-uploaded {
+    background: #fff4e5;
+    color: #934f00;
+}
+
+.record-status-processing {
+    background: #e8f1ff;
+    color: #175cd3;
+}
+
+.record-status-analyzed {
+    background: #e8f7ee;
+    color: #067647;
+}
+
+.record-status-failed {
+    background: #feeceb;
+    color: #b42318;
+}
+
+@media (max-width: 850px) {
+    .academic-record-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .academic-record-page {
+        padding: 16px;
+    }
+}
+.recommendations-upload-btn {
+    display: inline-block;
+    width: auto;
+    margin-top: 18px;
+    padding: 10px 18px;
+    text-decoration: none;
+}
+.btn-retry-analysis {
+    border: 0;
+    border-radius: 6px;
+    padding: 7px 12px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 600;
+}
