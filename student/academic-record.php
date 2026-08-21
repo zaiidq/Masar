@@ -61,6 +61,11 @@ $errors = [];
 $successMessage = $_SESSION['academic_record_success'] ?? null;
 unset($_SESSION['academic_record_success']);
 
+$autoAnalyzeRecordId =
+    (int) ($_SESSION['academic_record_auto_analyze_id'] ?? 0);
+
+unset($_SESSION['academic_record_auto_analyze_id']);
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $submittedToken = $_POST['csrf_token'] ?? '';
 
@@ -71,71 +76,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $errors[] = 'Invalid request. Please refresh the page and try again.';
     }
     $action = $_POST['action'] ?? 'upload_record';
-
-if (!$errors && $action === 'retry_analysis') {
-    $recordId = (int) ($_POST['record_id'] ?? 0);
-
-    $retryStatement = $pdo->prepare(
-        'SELECT id, user_id, file_path, status
-         FROM academic_records
-         WHERE id = :id
-           AND user_id = :user_id
-         LIMIT 1'
-    );
-
-    $retryStatement->execute([
-        'id' => $recordId,
-        'user_id' => $userId,
-    ]);
-
-    $retryRecord = $retryStatement->fetch();
-
-    if (!$retryRecord) {
-        $errors[] = 'The academic record could not be found.';
-    } elseif ($retryRecord['status'] !== 'failed') {
-        $errors[] = 'Only failed analyses can be retried.';
-    } else {
-        $pdfPath =
-            dirname(__DIR__)
-            . DIRECTORY_SEPARATOR
-            . str_replace(
-                '/',
-                DIRECTORY_SEPARATOR,
-                $retryRecord['file_path']
-            );
-
-        if (!is_file($pdfPath)) {
-            $errors[] = 'The uploaded academic record file could not be found.';
-        } else {
-            try {
-                set_time_limit(120);
-                analyzeAcademicRecord(
-                    $pdo,
-                    $recordId,
-                    $userId,
-                    $pdfPath
-                );
-
-                $_SESSION['academic_record_success'] =
-                    'Your academic record was analyzed successfully.';
-
-                header(
-                    'Location: /masar/student/academic-record.php'
-                );
-                exit;
-            } catch (Throwable $exception) {
-                markAnalysisFailed(
-                    $pdo,
-                    $recordId,
-                    $exception->getMessage()
-                );
-
-                $errors[] =
-                    'The analysis failed again. Please try again later.';
-            }
-        }
-    }
-}
 
     $uploadedFile = $_FILES['academic_record'] ?? null;
 
@@ -352,35 +292,17 @@ if (!$errors && $action === 'upload_record') {
                         'is_current' => 0,
                     ]);
 
-                    $recordId = (int) $pdo->lastInsertId();
+$recordId = (int) $pdo->lastInsertId();
 
-try {
-    /*
-     * Gemini currently takes around one minute on our test record,
-     * so allow enough time for the synchronous analysis.
-     */
-    set_time_limit(120);
+/*
+ * Store the new record ID temporarily so JavaScript can start
+ * the analysis after the page redirects.
+ */
+$_SESSION['academic_record_auto_analyze_id'] = $recordId;
 
-    analyzeAcademicRecord(
-        $pdo,
-        $recordId,
-        $userId,
-        $destinationPath
-    );
-
-    $_SESSION['academic_record_success'] =
-        'Your academic record was uploaded and analyzed successfully.';
-} catch (Throwable $analysisException) {
-    markAnalysisFailed(
-        $pdo,
-        $recordId,
-        $analysisException->getMessage()
-    );
-
-    $_SESSION['academic_record_success'] =
-        'Your academic record was uploaded, but the analysis failed. '
-        . 'Use Retry Analysis from the record history to try again.';
-}
+$_SESSION['academic_record_success'] =
+    'Your academic record was uploaded successfully. '
+    . 'Analysis is starting now.';
 
 header('Location: /masar/student/academic-record.php');
 exit;
@@ -447,11 +369,6 @@ require_once __DIR__ . '/../includes/sidebar.php';
         </div>
     </div>
 
-    <?php if ($successMessage): ?>
-        <div class="alert alert-success">
-            <?= escape($successMessage) ?>
-        </div>
-    <?php endif; ?>
 
     <?php if ($errors): ?>
         <div class="alert alert-error">
@@ -462,6 +379,13 @@ require_once __DIR__ . '/../includes/sidebar.php';
             </ul>
         </div>
     <?php endif; ?>
+<div
+    id="analysis-progress-alert"
+    class="alert alert-success"
+    <?= $successMessage ? '' : 'hidden' ?>
+>
+    <?= $successMessage ? escape($successMessage) : '' ?>
+</div>
 
     <div class="academic-record-grid">
         <section class="academic-record-card">
@@ -475,7 +399,7 @@ require_once __DIR__ . '/../includes/sidebar.php';
                     </p>
 
                     <p>
-                        <strong>Academic Semester:</strong>
+                        <strong>Last Academic Semester:</strong>
                         <?= escape(
                             $currentRecord['academic_semester']
                             ?? 'Not available'
@@ -632,7 +556,10 @@ require_once __DIR__ . '/../includes/sidebar.php';
                                 </td>
                                 <td>
     <?php if ($record['status'] === 'failed'): ?>
-        <form method="POST">
+        <form
+    method="POST"
+    class="retry-analysis-form"
+>
             <input
                 type="hidden"
                 name="csrf_token"
@@ -682,5 +609,163 @@ require_once __DIR__ . '/../includes/sidebar.php';
         <?php endif; ?>
     </section>
 </main>
+
+<?php if ($autoAnalyzeRecordId > 0): ?>
+    <form
+        id="auto-analysis-form"
+        class="retry-analysis-form"
+        method="POST"
+        hidden
+    >
+        <input
+            type="hidden"
+            name="csrf_token"
+            value="<?= escape($_SESSION['csrf_token']) ?>"
+        >
+
+        <input
+            type="hidden"
+            name="record_id"
+            value="<?= $autoAnalyzeRecordId ?>"
+        >
+    </form>
+<?php endif; ?>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const retryForms = document.querySelectorAll(
+        '.retry-analysis-form'
+    );
+
+    const progressAlert = document.getElementById(
+        'analysis-progress-alert'
+    );
+
+    retryForms.forEach(function (form) {
+        form.addEventListener('submit', async function (event) {
+            event.preventDefault();
+
+            const button = form.querySelector(
+                'button[type="submit"]'
+            );
+
+            const row = form.closest('tr');
+
+            const statusBadge = row
+                ? row.querySelector('.record-status')
+                : null;
+
+            /*
+             * Immediately update the UI.
+             */
+            if (button) {
+                button.disabled = true;
+                button.textContent = 'Analyzing...';
+            }
+
+            if (statusBadge) {
+                statusBadge.textContent = 'Processing';
+                statusBadge.className =
+                    'record-status record-status-processing';
+            }
+
+if (progressAlert) {
+    progressAlert.hidden = false;
+    progressAlert.className =
+        'alert alert-success';
+
+    if (form.id === 'auto-analysis-form') {
+        progressAlert.textContent =
+            'Your academic record was uploaded successfully and is now '
+            + 'being analyzed. You can continue using Masar while the '
+            + 'analysis is running.';
+    } else {
+        progressAlert.textContent =
+            'Your academic record is being analyzed. '
+            + 'You can continue using Masar while the analysis is running.';
+    }
+}
+
+            try {
+                const response = await fetch(
+                    '/masar/student/analyze-academic-record.php',
+                    {
+                        method: 'POST',
+                        body: new FormData(form),
+                        credentials: 'same-origin'
+                    }
+                );
+
+                let result;
+
+                try {
+                    result = await response.json();
+                } catch (error) {
+                    throw new Error(
+                        'The server returned an unexpected response.'
+                    );
+                }
+
+                if (!response.ok || !result.success) {
+                    throw new Error(
+                        result.message
+                        || 'Academic record analysis failed.'
+                    );
+                }
+
+                /*
+                 * Analysis finished successfully.
+                 * Reload so the latest academic data and
+                 * recommendations are shown.
+                 */
+                window.location.reload();
+            } catch (error) {
+                if (progressAlert) {
+                    progressAlert.hidden = false;
+                    progressAlert.className =
+                        'alert alert-error';
+
+                    progressAlert.textContent =
+                        error.message
+                        || 'Academic record analysis failed.';
+                }
+
+                if (button) {
+                    button.disabled = false;
+                    button.textContent = 'Retry Analysis';
+                }
+
+                if (statusBadge) {
+                    statusBadge.textContent = 'Failed';
+                    statusBadge.className =
+                        'record-status record-status-failed';
+                }
+            }
+        });
+    });
+
+    /*
+     * If the student returns to this page while an analysis
+     * is already running, refresh periodically until the
+     * database status changes from Processing.
+     */
+    const processingRecord = document.querySelector(
+        '.record-status-processing'
+    );
+
+    if (processingRecord) {
+        window.setTimeout(function () {
+            window.location.reload();
+        }, 5000);
+    }
+    const autoAnalysisForm = document.getElementById(
+    'auto-analysis-form'
+);
+
+if (autoAnalysisForm) {
+    autoAnalysisForm.requestSubmit();
+}
+});
+</script>
 
 <?php require_once __DIR__ . '/../includes/footer.php'; ?>
