@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../includes/auth_check.php';
 require_once __DIR__ . '/../config/database.php';
+require_once __DIR__ . '/../includes/language.php';
 
 if (($_SESSION['role'] ?? '') !== 'student') {
     header('Location: /masar/admin/dashboard.php');
@@ -17,7 +18,6 @@ function escapeValue(?string $value): string
     return htmlspecialchars($value ?? '', ENT_QUOTES, 'UTF-8');
 }
 
-/* The current record is the newest one that analysed successfully. */
 $recordStatement = $pdo->prepare(
     'SELECT *
      FROM academic_records
@@ -28,23 +28,27 @@ $recordStatement = $pdo->prepare(
 );
 
 $recordStatement->execute(['user_id' => $userId]);
-
 $record = $recordStatement->fetch();
 
 $recommendations = [];
 $progress = [];
+$failedCount = 0;
 
 if ($record) {
     $recommendationStatement = $pdo->prepare(
-        'SELECT *
-         FROM record_recommendations
-         WHERE record_id = :record_id
-           AND is_accepted = 1
-         ORDER BY priority'
+        'SELECT
+            rr.*,
+            rc.completion_state
+         FROM record_recommendations rr
+         LEFT JOIN record_courses rc
+           ON rc.record_id = rr.record_id
+          AND rc.course_code = rr.course_code
+         WHERE rr.record_id = :record_id
+           AND rr.is_accepted = 1
+         ORDER BY rr.priority, rr.id'
     );
 
     $recommendationStatement->execute(['record_id' => $record['id']]);
-
     $recommendations = $recommendationStatement->fetchAll();
 
     $progressStatement = $pdo->prepare(
@@ -61,162 +65,180 @@ if ($record) {
     foreach ($progressStatement->fetchAll() as $row) {
         $progress[$row['completion_state']] = $row;
     }
+
+    $failedCount = (int) ($progress['failed']['course_count'] ?? 0);
 }
 
-
 $totalRecommendedHours = array_sum(
-    array_column($recommendations, 'credit_hours')
+    array_map(
+        static fn (array $row): int => (int) ($row['credit_hours'] ?? 0),
+        $recommendations
+    )
 );
 
-$pageTitle = 'Recommendations';
+$recommendationCount = count($recommendations);
+$gpa = $record && $record['gpa'] !== null
+    ? number_format((float) $record['gpa'], 2)
+    : null;
+
+$pageTitle = t('recommendations');
 
 require_once __DIR__ . '/../includes/header.php';
 require_once __DIR__ . '/../includes/sidebar.php';
 ?>
 
-<main class="main-content">
-
-    <header class="page-header">
-        <h1>Course Recommendations</h1>
-
-        <p>
-            Suggested courses for your next semester, based on your
-            academic record.
-        </p>
-    </header>
+<main class="main-content recs-page">
 
     <?php if (!$record): ?>
+        <section class="recs-empty">
+            <img
+                src="/masar/assets/brand/masar-mark.svg"
+                alt=""
+                class="recs-empty__mark"
+            >
 
-        <div class="empty-state">
-            <p>
-                No analyzed academic record was found.
-                Upload your MEU academic record to see your progress and
-                recommended courses.
-            </p>
+            <span class="path-eyebrow">
+                <span class="path-eyebrow__tick"></span>
+                <?= escapeValue(t('recommendations')) ?>
+            </span>
+
+            <h1><?= escapeValue(t('recs_empty_title')) ?></h1>
+            <p><?= escapeValue(t('recs_empty_body')) ?></p>
 
             <a
-                class="btn-primary recommendations-upload-btn"
                 href="/masar/student/academic-record.php"
+                class="path-button"
             >
-                Upload Academic Record
+                <?= escapeValue(t('recs_upload_record')) ?>
             </a>
-        </div>
-
+        </section>
     <?php else: ?>
 
-        <section class="dashboard-grid">
+        <section class="recs-hero">
+            <img
+                src="/masar/assets/brand/masar-mark.svg"
+                alt=""
+                class="recs-hero__mark"
+            >
 
-    <article class="dashboard-card">
-        <h3>Completed</h3>
-        <p>
-            <?= (int) ($progress['completed']['course_count'] ?? 0) ?>
-            courses
-        </p>
-    </article>
+            <div class="recs-hero__main">
+                <div class="recs-hero__copy">
+                    <span class="path-eyebrow">
+                        <span class="path-eyebrow__tick"></span>
+                        <?= escapeValue(t('recs_eyebrow')) ?>
+                    </span>
 
-    <article class="dashboard-card">
-        <h3>In Progress</h3>
-        <p>
-            <?= (int) ($progress['in_progress']['course_count'] ?? 0) ?>
-            courses
-        </p>
-    </article>
+                    <h1>
+                        <?= escapeValue(sprintf(
+                            t('recs_headline'),
+                            $recommendationCount
+                        )) ?>
+                    </h1>
 
-    <article class="dashboard-card">
-        <h3>Failed Courses</h3>
-        <p>
-            <?= (int) ($progress['failed']['course_count'] ?? 0) ?>
-            courses
-        </p>
-    </article>
+                    <p><?= escapeValue(t('recs_intro')) ?></p>
+                </div>
 
-    <article class="dashboard-card">
-        <h3>Remaining to Graduate</h3>
-        <p>
-            <?= (int) ($record['remaining_hours'] ?? 0) ?>
-            credit hours
-        </p>
-    </article>
+                <div class="recs-hero__hours">
+                    <span><?= escapeValue(t('recs_suggested')) ?></span>
+                    <strong><?= (int) $totalRecommendedHours ?></strong>
+                    <small><?= escapeValue(t('recs_credit_hours_label')) ?></small>
+                </div>
+            </div>
 
-</section>
+            <div class="recs-context">
+                <?php if (!empty($record['major_name'])): ?>
+                    <span lang="en" dir="ltr">
+                        <?= escapeValue($record['major_name']) ?>
+                    </span>
+                <?php endif; ?>
 
-        <section class="content-card">
-            <h2>Academic Summary</h2>
+                <?php if ($gpa !== null): ?>
+                    <span>
+                        <?= escapeValue(sprintf(t('recs_context_gpa'), $gpa)) ?>
+                    </span>
+                <?php endif; ?>
 
-            <div class="record-summary">
-                <p>
-                    <strong>Major:</strong>
-                    <?= escapeValue($record['major_name'] ?? 'Not available') ?>
-                </p>
+                <span>
+                    <?= escapeValue(sprintf(
+                        t('recs_context_earned'),
+                        (int) ($record['earned_hours'] ?? 0),
+                        (int) ($record['plan_hours'] ?? 0)
+                    )) ?>
+                </span>
 
-                <p>
-                    <strong>Level:</strong>
-                    <?= escapeValue($record['student_level'] ?? 'Not available') ?>
-                </p>
+                <span>
+                    <?= escapeValue(sprintf(
+                        t('recs_context_remaining'),
+                        (int) ($record['remaining_hours'] ?? 0)
+                    )) ?>
+                </span>
 
-                <p>
-                    <strong>GPA:</strong>
-                    <?= escapeValue((string) ($record['gpa'] ?? 'Not available')) ?>
-                </p>
-
-                <p>
-                    <strong>Earned Hours:</strong>
-                    <?= (int) ($record['earned_hours'] ?? 0) ?>
-                    of
-                    <?= (int) ($record['plan_hours'] ?? 0) ?>
-                </p>
-
-                <p>
-                    <strong>Remaining Hours:</strong>
-                    <?= (int) ($record['remaining_hours'] ?? 0) ?>
-                </p>
+                <?php if ($failedCount > 0): ?>
+                    <span class="recs-context__attention">
+                        <?= escapeValue(sprintf(
+                            t('recs_context_failed'),
+                            $failedCount
+                        )) ?>
+                    </span>
+                <?php endif; ?>
             </div>
         </section>
 
-        <section class="content-card">
-            <h2>
-                Recommended Courses
-                <?php if ($totalRecommendedHours > 0): ?>
-                    (<?= (int) $totalRecommendedHours ?> credit hours)
-                <?php endif; ?>
-            </h2>
+        <section class="recs-plan">
+            <div class="recs-plan__meta">
+                <?= escapeValue(sprintf(
+                    t('recs_readonly_meta'),
+                    $recommendationCount
+                )) ?>
+            </div>
 
             <?php if (!$recommendations): ?>
-
-                <p class="empty-state">
-                    No courses could be recommended from this record.
-                </p>
-
+                <div class="record-empty-inline">
+                    <?= escapeValue(t('recs_no_courses')) ?>
+                </div>
             <?php else: ?>
-
-                <div class="table-responsive">
-                    <table class="admin-table">
+                <div class="recs-table-wrap">
+                    <table class="recs-table">
                         <thead>
                             <tr>
-                                <th>Code</th>
-                                <th>Course</th>
-                                <th>Hours</th>
-                                <th>Why this course</th>
+                                <th class="is-priority"><?= escapeValue(t('recs_priority')) ?></th>
+                                <th><?= escapeValue(t('recs_code')) ?></th>
+                                <th><?= escapeValue(t('recs_course')) ?></th>
+                                <th class="is-hours"><?= escapeValue(t('recs_hours')) ?></th>
+                                <th><?= escapeValue(t('recs_reason')) ?></th>
                             </tr>
                         </thead>
-
                         <tbody>
-                            <?php foreach ($recommendations as $item): ?>
+                            <?php foreach ($recommendations as $index => $item): ?>
+                                <?php
+                                $isFailed =
+                                    ($item['completion_state'] ?? '') === 'failed';
+                                $priority = (int) ($item['priority'] ?? 0);
+
+                                if ($priority <= 0) {
+                                    $priority = $index + 1;
+                                }
+                                ?>
                                 <tr>
-                                    <td>
+                                    <td class="recs-priority record-data-ltr">
+                                        <?= $priority ?>
+                                    </td>
+                                    <td
+                                        class="recs-code <?= $isFailed
+                                            ? 'recs-code--failed'
+                                            : '' ?>"
+                                        dir="ltr"
+                                    >
                                         <?= escapeValue($item['course_code']) ?>
                                     </td>
-
-                                    <td>
+                                    <td class="recs-course" lang="en" dir="ltr">
                                         <?= escapeValue($item['course_name']) ?>
                                     </td>
-
-                                    <td>
+                                    <td class="recs-hours record-data-ltr">
                                         <?= (int) $item['credit_hours'] ?>
                                     </td>
-
-                                    <td>
-                                        <?= escapeValue($item['reason']) ?>
+                                    <td class="recs-reason" lang="en" dir="ltr">
+                                        <?= escapeValue($item['reason'] ?? '') ?>
                                     </td>
                                 </tr>
                             <?php endforeach; ?>
@@ -224,13 +246,64 @@ require_once __DIR__ . '/../includes/sidebar.php';
                     </table>
                 </div>
 
-            <?php endif; ?>
+                <div class="recs-mobile-list">
+                    <?php foreach ($recommendations as $index => $item): ?>
+                        <?php
+                        $isFailed =
+                            ($item['completion_state'] ?? '') === 'failed';
+                        $priority = (int) ($item['priority'] ?? 0);
 
-            <p class="form-help">
-                These recommendations are generated automatically to support
-                academic planning. They do not replace official university
-                advising.
-            </p>
+                        if ($priority <= 0) {
+                            $priority = $index + 1;
+                        }
+                        ?>
+                        <article class="recs-mobile-item <?= $isFailed
+                            ? 'recs-mobile-item--failed'
+                            : '' ?>">
+                            <div class="recs-mobile-item__top">
+                                <span class="recs-priority record-data-ltr">
+                                    <?= $priority ?>
+                                </span>
+
+                                <span
+                                    class="recs-code <?= $isFailed
+                                        ? 'recs-code--failed'
+                                        : '' ?>"
+                                    dir="ltr"
+                                >
+                                    <?= escapeValue($item['course_code']) ?>
+                                </span>
+
+                                <span class="recs-hours">
+                                    <?= (int) $item['credit_hours'] ?>
+                                    <?= escapeValue(t('recs_hours')) ?>
+                                </span>
+                            </div>
+
+                            <h2 lang="en" dir="ltr">
+                                <?= escapeValue($item['course_name']) ?>
+                            </h2>
+
+                            <?php if (!empty($item['reason'])): ?>
+                                <p lang="en" dir="ltr">
+                                    <?= escapeValue($item['reason']) ?>
+                                </p>
+                            <?php endif; ?>
+                        </article>
+                    <?php endforeach; ?>
+                </div>
+            <?php endif; ?>
+        </section>
+
+        <section class="recs-footnotes">
+            <div class="recs-explainer">
+                <strong><?= escapeValue(t('recs_how_title')) ?></strong>
+                <p><?= escapeValue(t('recs_how_body')) ?></p>
+            </div>
+
+            <div class="recs-disclaimer">
+                <p><?= escapeValue(t('recs_disclaimer')) ?></p>
+            </div>
         </section>
 
     <?php endif; ?>

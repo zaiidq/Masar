@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../includes/auth_check.php';
 require_once __DIR__ . '/../config/database.php';
+require_once __DIR__ . '/../includes/language.php';
 
 if ($_SESSION['role'] !== 'admin') {
     header('Location: ../student/dashboard.php');
@@ -46,55 +47,127 @@ $totalLinks = (int) ($linkStats['total_links'] ?? 0);
 $activeLinks = (int) ($linkStats['active_links'] ?? 0);
 $hiddenLinks = (int) ($linkStats['hidden_links'] ?? 0);
 
-$pageTitle = 'Admin Dashboard';
+$activeLinkShare = $totalLinks > 0
+    ? min(100, ($activeLinks / $totalLinks) * 100)
+    : 0;
+
+$pageTitle = t('admin_dashboard_page_title');
 
 require_once __DIR__ . '/../includes/header.php';
 require_once __DIR__ . '/../includes/admin-sidebar.php';
 ?>
 
-<main class="main-content">
+<main class="main-content admin-page admin-dashboard-page">
 
-    <header class="page-header">
-        <h1>Admin Dashboard</h1>
+    <section class="admin-hero-new">
+        <div class="admin-hero-new__copy">
+            <span class="admin-eyebrow-new">
+                <span class="admin-eyebrow-new__tick"></span>
+                <?= htmlspecialchars(t('admin_overview_eyebrow')) ?>
+            </span>
 
-        <p>
-            Manage Masar content and monitor basic system activity.
-        </p>
-    </header>
+            <h1><?= htmlspecialchars(t('admin_overview_headline')) ?></h1>
 
-    <section class="dashboard-grid">
+            <p><?= htmlspecialchars(t('admin_overview_intro')) ?></p>
+        </div>
 
-        <article class="dashboard-card">
-            <p>Registered Users</p>
-            <h2><?= $totalUsers ?></h2>
+        <img
+            class="admin-hero-new__mark"
+            src="/masar/assets/brand/masar-mark.svg"
+            alt=""
+        >
+    </section>
+
+    <section class="admin-overview-grid-new">
+
+        <article class="admin-overview-panel-new admin-overview-panel-new--users">
+            <div class="admin-overview-panel-new__topline">
+                <span><?= htmlspecialchars(t('admin_users_label')) ?></span>
+                <span><?= htmlspecialchars(t('admin_registered_label')) ?></span>
+            </div>
+
+            <div class="admin-overview-number-new">
+                <?= number_format($totalUsers) ?>
+            </div>
+
+            <div class="admin-overview-split-new">
+                <div>
+                    <span><?= htmlspecialchars(t('admin_students_label')) ?></span>
+                    <strong><?= number_format($totalStudents) ?></strong>
+                </div>
+
+                <div>
+                    <span><?= htmlspecialchars(t('admin_administrators_label')) ?></span>
+                    <strong><?= number_format($totalAdmins) ?></strong>
+                </div>
+            </div>
         </article>
 
-        <article class="dashboard-card">
-            <p>Students</p>
-            <h2><?= $totalStudents ?></h2>
-        </article>
+        <article class="admin-overview-panel-new admin-overview-panel-new--links">
+            <div class="admin-overview-panel-new__topline">
+                <span><?= htmlspecialchars(t('admin_resources_label')) ?></span>
+                <span><?= htmlspecialchars(t('admin_total_links_label')) ?></span>
+            </div>
 
-        <article class="dashboard-card">
-            <p>Administrators</p>
-            <h2><?= $totalAdmins ?></h2>
-        </article>
+            <div class="admin-overview-number-new">
+                <?= number_format($totalLinks) ?>
+            </div>
 
-        <article class="dashboard-card">
-            <p>University Links</p>
-            <h2><?= $totalLinks ?></h2>
-        </article>
+            <div
+                class="admin-link-health-new"
+                role="img"
+                aria-label="<?= htmlspecialchars(
+                    sprintf(
+                        t('admin_links_status_summary'),
+                        $activeLinks,
+                        $hiddenLinks
+                    )
+                ) ?>"
+            >
+                <span
+                    class="admin-link-health-new__active"
+                    style="inline-size: <?= number_format($activeLinkShare, 2, '.', '') ?>%"
+                ></span>
+            </div>
 
-        <article class="dashboard-card">
-            <p>Active Links</p>
-            <h2><?= $activeLinks ?></h2>
-        </article>
+            <div class="admin-link-legend-new">
+                <span>
+                    <i class="admin-link-legend-new__dot admin-link-legend-new__dot--active"></i>
+                    <?= htmlspecialchars(sprintf(t('admin_active_links_count'), $activeLinks)) ?>
+                </span>
 
-        <article class="dashboard-card">
-            <p>Hidden Links</p>
-            <h2><?= $hiddenLinks ?></h2>
+                <span>
+                    <i class="admin-link-legend-new__dot admin-link-legend-new__dot--hidden"></i>
+                    <?= htmlspecialchars(sprintf(t('admin_hidden_links_count'), $hiddenLinks)) ?>
+                </span>
+            </div>
         </article>
 
     </section>
+
+    <section class="admin-manage-strip-new">
+        <div>
+            <span class="admin-manage-strip-new__label">
+                <?= htmlspecialchars(t('admin_manage_links_eyebrow')) ?>
+            </span>
+
+            <h2><?= htmlspecialchars(t('admin_manage_links_title')) ?></h2>
+
+            <p><?= htmlspecialchars(t('admin_manage_links_body')) ?></p>
+        </div>
+
+        <a
+            href="/masar/admin/university-links.php"
+            class="admin-primary-action-new"
+        >
+            <span><?= htmlspecialchars(t('admin_manage_links_action')) ?></span>
+            <span aria-hidden="true">→</span>
+        </a>
+    </section>
+
+    <p class="admin-footnote-new">
+        <?= htmlspecialchars(t('admin_dashboard_note')) ?>
+    </p>
 
 </main>
 

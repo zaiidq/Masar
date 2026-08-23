@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../includes/auth_check.php';
 require_once __DIR__ . '/../config/database.php';
+require_once __DIR__ . '/../includes/language.php';
 require_once __DIR__ . '/../includes/academic-record-parser.php';
 require_once __DIR__ . '/../includes/academic-record-analyzer.php';
 
@@ -18,21 +19,11 @@ if (empty($_SESSION['csrf_token'])) {
     $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
 }
 
-/**
- * Prevent HTML injection when displaying database values.
- */
 function escape(?string $value): string
 {
-    return htmlspecialchars(
-        $value ?? '',
-        ENT_QUOTES,
-        'UTF-8'
-    );
+    return htmlspecialchars($value ?? '', ENT_QUOTES, 'UTF-8');
 }
 
-/**
- * Convert file size from bytes to a readable format.
- */
 function formatFileSize(int $bytes): string
 {
     if ($bytes >= 1024 * 1024) {
@@ -42,17 +33,43 @@ function formatFileSize(int $bytes): string
     return number_format($bytes / 1024, 2) . ' KB';
 }
 
-/**
- * Return a readable record status.
- */
+function formatRecordDate(?string $value): string
+{
+    if (!$value) {
+        return t('not_available');
+    }
+
+    $timestamp = strtotime($value);
+
+    if ($timestamp === false) {
+        return t('not_available');
+    }
+
+    if (currentLanguage() === 'ar') {
+        return date('Y/m/d H:i', $timestamp);
+    }
+
+    return date('d M Y, h:i A', $timestamp);
+}
+
 function getStatusLabel(string $status): string
 {
     return match ($status) {
-        'uploaded' => 'Uploaded',
-        'processing' => 'Processing',
-        'analyzed' => 'Analyzed',
-        'failed' => 'Failed',
-        default => 'Unknown',
+        'uploaded' => t('record_status_uploaded'),
+        'processing' => t('record_status_processing'),
+        'analyzed' => t('record_status_analyzed'),
+        'failed' => t('record_status_failed'),
+        default => t('record_status_unknown'),
+    };
+}
+
+function getCourseStateLabel(string $state): string
+{
+    return match ($state) {
+        'completed' => t('course_state_completed'),
+        'in_progress' => t('course_state_in_progress'),
+        'failed' => t('course_state_failed'),
+        default => t('course_state_remaining'),
     };
 }
 
@@ -73,74 +90,64 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         !is_string($submittedToken)
         || !hash_equals($_SESSION['csrf_token'], $submittedToken)
     ) {
-        $errors[] = 'Invalid request. Please refresh the page and try again.';
+        $errors[] = t('record_error_invalid_request');
     }
-    $action = $_POST['action'] ?? 'upload_record';
 
+    $action = $_POST['action'] ?? 'upload_record';
     $uploadedFile = $_FILES['academic_record'] ?? null;
 
-if (!$errors && $action === 'upload_record') {
-    if (!is_array($uploadedFile)) {
-        $errors[] = 'Please select an academic record PDF.';
-    } else {
-        $uploadError = (int) ($uploadedFile['error'] ?? UPLOAD_ERR_NO_FILE);
+    if (!$errors && $action === 'upload_record') {
+        if (!is_array($uploadedFile)) {
+            $errors[] = t('record_error_select_pdf');
+        } else {
+            $uploadError = (int) ($uploadedFile['error'] ?? UPLOAD_ERR_NO_FILE);
 
-        if ($uploadError !== UPLOAD_ERR_OK) {
-            $errors[] = match ($uploadError) {
-                UPLOAD_ERR_INI_SIZE,
-                UPLOAD_ERR_FORM_SIZE =>
-                    'The selected file is larger than the allowed size.',
-
-                UPLOAD_ERR_PARTIAL =>
-                    'The file was only partially uploaded. Please try again.',
-
-                UPLOAD_ERR_NO_FILE =>
-                    'Please select an academic record PDF.',
-
-                default =>
-                    'The file could not be uploaded. Please try again.',
-            };
+            if ($uploadError !== UPLOAD_ERR_OK) {
+                $errors[] = match ($uploadError) {
+                    UPLOAD_ERR_INI_SIZE,
+                    UPLOAD_ERR_FORM_SIZE => t('record_error_too_large'),
+                    UPLOAD_ERR_PARTIAL => t('record_error_partial'),
+                    UPLOAD_ERR_NO_FILE => t('record_error_select_pdf'),
+                    default => t('record_error_upload_failed'),
+                };
+            }
         }
     }
-}
 
     if (
-    !$errors
-    && $action === 'upload_record'
-    && is_array($uploadedFile)) {
+        !$errors
+        && $action === 'upload_record'
+        && is_array($uploadedFile)
+    ) {
         $originalName = basename((string) $uploadedFile['name']);
         $temporaryPath = (string) $uploadedFile['tmp_name'];
         $fileSize = (int) $uploadedFile['size'];
-
         $maximumFileSize = 10 * 1024 * 1024;
 
         if ($fileSize <= 0) {
-            $errors[] = 'The selected file is empty.';
+            $errors[] = t('record_error_empty');
         }
 
         if ($fileSize > $maximumFileSize) {
-            $errors[] = 'The academic record must not exceed 10 MB.';
+            $errors[] = t('record_error_max_10mb');
         }
 
         if (!is_uploaded_file($temporaryPath)) {
-            $errors[] = 'The uploaded file could not be verified.';
+            $errors[] = t('record_error_unverified_upload');
         }
 
-        $extension = strtolower(
-            pathinfo($originalName, PATHINFO_EXTENSION)
-        );
+        $extension = strtolower(pathinfo($originalName, PATHINFO_EXTENSION));
 
         if ($extension !== 'pdf') {
-            $errors[] = 'Only PDF files are allowed.';
+            $errors[] = t('record_error_pdf_only');
         }
 
         if (!$errors) {
             if (!class_exists('finfo')) {
-                $errors[] = 'The server cannot verify the uploaded file type.';
+                $errors[] = t('record_error_mime_unavailable');
             } else {
                 $fileInfo = new finfo(FILEINFO_MIME_TYPE);
                 $mimeType = $fileInfo->file($temporaryPath);
-
                 $allowedMimeTypes = [
                     'application/pdf',
                     'application/x-pdf',
@@ -150,7 +157,7 @@ if (!$errors && $action === 'upload_record') {
                     !is_string($mimeType)
                     || !in_array($mimeType, $allowedMimeTypes, true)
                 ) {
-                    $errors[] = 'The selected file is not a valid PDF.';
+                    $errors[] = t('record_error_invalid_pdf');
                 }
             }
         }
@@ -159,41 +166,35 @@ if (!$errors && $action === 'upload_record') {
             $fileHandle = fopen($temporaryPath, 'rb');
 
             if ($fileHandle === false) {
-                $errors[] = 'The uploaded PDF could not be read.';
+                $errors[] = t('record_error_pdf_unreadable');
             } else {
                 $fileSignature = fread($fileHandle, 5);
                 fclose($fileHandle);
 
                 if ($fileSignature !== '%PDF-') {
-                    $errors[] = 'The selected file does not contain valid PDF data.';
+                    $errors[] = t('record_error_pdf_signature');
                 }
             }
         }
+
         if (!$errors) {
-              try {
-                   $recordText = extractAcademicRecordPdfText($temporaryPath);
+            try {
+                $recordText = extractAcademicRecordPdfText($temporaryPath);
+                $recordValidation = validateEnglishMeuAcademicRecord($recordText);
 
-          $recordValidation =
-            validateEnglishMeuAcademicRecord($recordText);
-
-        if (!$recordValidation['valid']) {
-            $errors[] =
-                'The uploaded file could not be recognized as an English '
-                . 'MEU Academic Record. Please download the English version '
-                . 'directly from the university system.';
+                if (!$recordValidation['valid']) {
+                    $errors[] = t('record_error_not_meu_english');
+                }
+            } catch (Throwable $exception) {
+                $errors[] = t('record_error_read_record');
+            }
         }
-    } catch (Throwable $exception) {
-        $errors[] =
-            'The academic record could not be read. '
-            . 'Please upload the original English PDF from the university system.';
-    }
-}
 
         if (!$errors) {
             $fileHash = hash_file('sha256', $temporaryPath);
 
             if ($fileHash === false) {
-                $errors[] = 'The uploaded file could not be processed.';
+                $errors[] = t('record_error_process_file');
             } else {
                 $duplicateStatement = $pdo->prepare(
                     'SELECT id
@@ -209,14 +210,13 @@ if (!$errors && $action === 'upload_record') {
                 ]);
 
                 if ($duplicateStatement->fetch()) {
-                    $errors[] = 'This academic record has already been uploaded.';
+                    $errors[] = t('record_error_duplicate');
                 }
             }
         }
 
         if (!$errors) {
             $storedName = bin2hex(random_bytes(16)) . '.pdf';
-
             $storageDirectory =
                 dirname(__DIR__)
                 . DIRECTORY_SEPARATOR
@@ -229,11 +229,11 @@ if (!$errors && $action === 'upload_record') {
                 && !mkdir($storageDirectory, 0755, true)
                 && !is_dir($storageDirectory)
             ) {
-                $errors[] = 'The academic record storage folder could not be created.';
+                $errors[] = t('record_error_storage_create');
             }
 
             if (!$errors && !is_writable($storageDirectory)) {
-                $errors[] = 'The academic record storage folder is not writable.';
+                $errors[] = t('record_error_storage_write');
             }
 
             $destinationPath =
@@ -245,12 +245,11 @@ if (!$errors && $action === 'upload_record') {
                 !$errors
                 && !move_uploaded_file($temporaryPath, $destinationPath)
             ) {
-                $errors[] = 'The academic record could not be saved.';
+                $errors[] = t('record_error_save_file');
             }
 
             if (!$errors) {
-                $relativePath =
-                    'storage/academic-records/' . $storedName;
+                $relativePath = 'storage/academic-records/' . $storedName;
 
                 try {
                     $insertStatement = $pdo->prepare(
@@ -292,31 +291,23 @@ if (!$errors && $action === 'upload_record') {
                         'is_current' => 0,
                     ]);
 
-$recordId = (int) $pdo->lastInsertId();
+                    $recordId = (int) $pdo->lastInsertId();
 
-/*
- * Store the new record ID temporarily so JavaScript can start
- * the analysis after the page redirects.
- */
-$_SESSION['academic_record_auto_analyze_id'] = $recordId;
+                    $_SESSION['academic_record_auto_analyze_id'] = $recordId;
+                    $_SESSION['academic_record_success'] =
+                        t('record_success_uploaded_starting');
 
-$_SESSION['academic_record_success'] =
-    'Your academic record was uploaded successfully. '
-    . 'Analysis is starting now.';
-
-header('Location: /masar/student/academic-record.php');
-exit;
+                    header('Location: /masar/student/academic-record.php');
+                    exit;
                 } catch (PDOException $exception) {
                     if (is_file($destinationPath)) {
                         unlink($destinationPath);
                     }
 
                     if ($exception->getCode() === '23000') {
-                        $errors[] =
-                            'This academic record has already been uploaded.';
+                        $errors[] = t('record_error_duplicate');
                     } else {
-                        $errors[] =
-                            'The academic record could not be saved in the database.';
+                        $errors[] = t('record_error_save_database');
                     }
                 }
             }
@@ -334,10 +325,7 @@ $currentStatement = $pdo->prepare(
      LIMIT 1'
 );
 
-$currentStatement->execute([
-    'user_id' => $userId,
-]);
-
+$currentStatement->execute(['user_id' => $userId]);
 $currentRecord = $currentStatement->fetch();
 
 $historyStatement = $pdo->prepare(
@@ -347,31 +335,75 @@ $historyStatement = $pdo->prepare(
      ORDER BY created_at DESC'
 );
 
-$historyStatement->execute([
-    'user_id' => $userId,
-]);
-
+$historyStatement->execute(['user_id' => $userId]);
 $recordHistory = $historyStatement->fetchAll();
+$latestRecord = $recordHistory[0] ?? null;
 
-$pageTitle = 'Academic Record';
+$currentCourses = [];
+
+if ($currentRecord) {
+    $courseStatement = $pdo->prepare(
+        'SELECT
+            requirement_type,
+            course_code,
+            course_name,
+            credit_hours,
+            mark,
+            completion_state,
+            semester_code
+         FROM record_courses
+         WHERE record_id = :record_id
+         ORDER BY id ASC'
+    );
+
+    $courseStatement->execute(['record_id' => $currentRecord['id']]);
+    $currentCourses = $courseStatement->fetchAll();
+}
+
+$pageTitle = t('academic_record');
 
 require_once __DIR__ . '/../includes/header.php';
 require_once __DIR__ . '/../includes/sidebar.php';
 ?>
 
-<main class="main-content academic-record-page">
-    <div class="page-heading">
-        <div>
-            <h1>Academic Record Management</h1>
-            <p>
-                Upload and manage your Middle East University academic records.
+<main class="main-content record-page">
+
+    <section class="record-hero">
+        <div class="record-hero__copy">
+            <span class="path-eyebrow">
+                <span class="path-eyebrow__tick"></span>
+                <?= escape(t('record_eyebrow')) ?>
+            </span>
+
+            <h1 class="record-hero__title">
+                <?= escape(t('record_headline')) ?>
+            </h1>
+
+            <p class="record-hero__intro">
+                <?= escape(t('record_intro')) ?>
             </p>
         </div>
-    </div>
 
+        <?php if ($currentRecord): ?>
+            <div class="record-hero__file">
+                <span class="record-data-ltr">
+                    <?= escape($currentRecord['original_name']) ?>
+                    ·
+                    <?= escape(formatFileSize((int) $currentRecord['file_size'])) ?>
+                </span>
+
+                <small>
+                    <?= escape(formatRecordDate($currentRecord['analyzed_at'] ?? null)) ?>
+                    <?php if (!empty($currentRecord['ai_model'])): ?>
+                        · <span class="record-data-ltr"><?= escape($currentRecord['ai_model']) ?></span>
+                    <?php endif; ?>
+                </small>
+            </div>
+        <?php endif; ?>
+    </section>
 
     <?php if ($errors): ?>
-        <div class="alert alert-error">
+        <div class="record-alert record-alert--error">
             <ul>
                 <?php foreach ($errors as $error): ?>
                     <li><?= escape($error) ?></li>
@@ -379,235 +411,303 @@ require_once __DIR__ . '/../includes/sidebar.php';
             </ul>
         </div>
     <?php endif; ?>
-<div
-    id="analysis-progress-alert"
-    class="alert alert-success"
-    <?= $successMessage ? '' : 'hidden' ?>
->
-    <?= $successMessage ? escape($successMessage) : '' ?>
-</div>
 
-    <div class="academic-record-grid">
-        <section class="academic-record-card">
-            <h2>Current Record</h2>
-
-            <?php if ($currentRecord): ?>
-                <div class="record-summary">
-                    <p>
-                        <strong>File:</strong>
-                        <?= escape($currentRecord['original_name']) ?>
-                    </p>
-
-                    <p>
-                        <strong>Last Academic Semester:</strong>
-                        <?= escape(
-                            $currentRecord['academic_semester']
-                            ?? 'Not available'
-                        ) ?>
-                    </p>
-
-                    <p>
-                        <strong>Uploaded:</strong>
-                        <?= escape(
-                            date(
-                                'd M Y, h:i A',
-                                strtotime($currentRecord['created_at'])
-                            )
-                        ) ?>
-                    </p>
-
-                    <p>
-                        <strong>Status:</strong>
-                        <?= escape(
-                            getStatusLabel($currentRecord['status'])
-                        ) ?>
-                    </p>
-
-                    <p>
-                        <strong>GPA:</strong>
-                        <?= escape(
-                            $currentRecord['gpa'] !== null
-                                ? (string) $currentRecord['gpa']
-                                : 'Not available'
-                        ) ?>
-                    </p>
-                </div>
-            <?php else: ?>
-                <div class="empty-state">
-                    <p>
-                        You do not have an analyzed academic record yet.
-                    </p>
-                </div>
-            <?php endif; ?>
-        </section>
-
-        <section class="academic-record-card">
-            <h2>Upload New Record</h2>
-
-            <p class="upload-instructions">
-                Download your complete Academic Record in English directly
-                from the university system and upload it here as a PDF.
-            </p>
-
-            <form
-                method="POST"
-                enctype="multipart/form-data"
-                class="academic-record-form"
-            >
-                <input
-                    type="hidden"
-                    name="csrf_token"
-                    value="<?= escape($_SESSION['csrf_token']) ?>"
-                >
-                <input
-                    type="hidden"
-                    name="action"
-                    value="upload_record"
-                >   
-                
-
-                <div class="form-group">
-                    <label for="academic_record">
-                        Academic Record PDF
-                    </label>
-
-                    <input
-                        type="file"
-                        id="academic_record"
-                        name="academic_record"
-                        accept=".pdf,application/pdf"
-                        required
-                    >
-
-                    <small>
-                        English MEU Academic Record only. Maximum size: 10 MB.
-                    </small>
-                </div>
-
-                <button type="submit" class="btn btn-primary">
-                    Upload Academic Record
-                </button>
-            </form>
-        </section>
+    <div
+        id="analysis-progress-alert"
+        class="record-alert record-alert--success"
+        <?= $successMessage ? '' : 'hidden' ?>
+    >
+        <?= $successMessage ? escape($successMessage) : '' ?>
     </div>
 
-    <section class="academic-record-card record-history-card">
-        <h2>Record History</h2>
+    <div class="record-layout">
 
-        <?php if (!$recordHistory): ?>
-            <div class="empty-state">
-                <p>No academic records have been uploaded yet.</p>
-            </div>
-        <?php else: ?>
-            <div class="table-responsive">
-                <table class="record-history-table">
-                    <thead>
-                        <tr>
-                            <th>File Name</th>
-                            <th>Size</th>
-                            <th>Status</th>
-                            <th>Current</th>
-                            <th>Uploaded At</th>
-                            <th>Actions</th>
-                        </tr>
-                    </thead>
+        <aside class="record-sidebar-panel">
+            <section class="record-upload-panel">
+                <img
+                    src="/masar/assets/brand/masar-mark.svg"
+                    alt=""
+                    class="record-upload-panel__mark"
+                >
 
-                    <tbody>
-                        <?php foreach ($recordHistory as $record): ?>
-                            <tr>
-                                <td>
-                                    <?= escape($record['original_name']) ?>
-                                </td>
+                <div class="record-upload-panel__content">
+                    <h2><?= escape(t('record_upload_newer')) ?></h2>
+                    <p><?= escape(t('record_upload_help')) ?></p>
 
-                                <td>
-                                    <?= escape(
-                                        formatFileSize(
-                                            (int) $record['file_size']
-                                        )
-                                    ) ?>
-                                </td>
+                    <form
+                        method="POST"
+                        enctype="multipart/form-data"
+                        class="record-upload-form"
+                    >
+                        <input
+                            type="hidden"
+                            name="csrf_token"
+                            value="<?= escape($_SESSION['csrf_token']) ?>"
+                        >
+                        <input type="hidden" name="action" value="upload_record">
 
-                                <td>
-                                    <span
-                                        class="record-status
-                                            record-status-<?= escape(
-                                                $record['status']
-                                            ) ?>"
-                                    >
-                                        <?= escape(
-                                            getStatusLabel($record['status'])
-                                        ) ?>
-                                    </span>
-                                </td>
+                        <label
+                            class="record-file-control"
+                            for="academic_record"
+                        >
+                            <span><?= escape(t('record_choose_file')) ?></span>
+                            <input
+                                type="file"
+                                id="academic_record"
+                                name="academic_record"
+                                accept=".pdf,application/pdf"
+                                onchange="this.form.requestSubmit()"
+                                required
+                            >
+                        </label>
+                    </form>
+                </div>
+            </section>
 
-                                <td>
-                                    <?= (int) $record['is_current'] === 1
-                                        ? 'Yes'
-                                        : 'No' ?>
-                                </td>
+            <?php if ($latestRecord): ?>
+                <section class="record-status-panel">
+                    <div class="record-kicker">
+                        <?= escape(t('record_analysis_status')) ?>
+                    </div>
 
-                                <td>
-                                    <?= escape(
-                                        date(
-                                            'd M Y, h:i A',
-                                            strtotime($record['created_at'])
-                                        )
-                                    ) ?>
-                                </td>
-                                <td>
-    <?php if ($record['status'] === 'failed'): ?>
-        <form
-    method="POST"
-    class="retry-analysis-form"
->
-            <input
-                type="hidden"
-                name="csrf_token"
-                value="<?= escape($_SESSION['csrf_token']) ?>"
-            >
+                    <div class="record-status-line">
+                        <span
+                            class="record-status-dot record-status-dot--<?= escape($latestRecord['status']) ?>"
+                        ></span>
+                        <strong>
+                            <?= escape(getStatusLabel((string) $latestRecord['status'])) ?>
+                        </strong>
+                    </div>
 
-            <input
-                type="hidden"
-                name="action"
-                value="retry_analysis"
-            >
+                    <p>
+                        <?php if ($latestRecord['status'] === 'processing'): ?>
+                            <?= escape(t('record_processing_message')) ?>
+                        <?php elseif ($latestRecord['status'] === 'failed'): ?>
+                            <?= escape(t('record_analysis_failed')) ?>
+                        <?php elseif ($latestRecord['status'] === 'analyzed'): ?>
+                            <?= escape(t('record_analysis_complete')) ?>
+                        <?php else: ?>
+                            <?= escape(t('record_success_uploaded_starting')) ?>
+                        <?php endif; ?>
+                    </p>
+                </section>
+            <?php endif; ?>
 
-            <input
-                type="hidden"
-                name="record_id"
-                value="<?= (int) $record['id'] ?>"
-            >
+            <section class="record-current-panel">
+                <div class="record-kicker">
+                    <?= escape(t('record_current_analyzed')) ?>
+                </div>
 
-            <button
-                type="submit"
-                class="btn-retry-analysis"
-            >
-                Retry Analysis
-            </button>
-        </form>
-    <?php else: ?>
-        —
-    <?php endif; ?>
-</td>
-                            </tr>
+                <?php if ($currentRecord): ?>
+                    <dl class="record-current-list">
+                        <div>
+                            <dt><?= escape(t('record_last_academic_semester')) ?></dt>
+                            <dd>
+                                <?= escape($currentRecord['academic_semester'] ?? t('not_available')) ?>
+                                <small><?= escape(t('record_as_read_pdf')) ?></small>
+                            </dd>
+                        </div>
+                        <div>
+                            <dt><?= escape(t('record_level')) ?></dt>
+                            <dd><?= escape($currentRecord['student_level'] ?? t('not_available')) ?></dd>
+                        </div>
+                        <div>
+                            <dt><?= escape(t('record_gpa')) ?></dt>
+                            <dd class="record-data-ltr">
+                                <?= escape(
+                                    $currentRecord['gpa'] !== null
+                                        ? number_format((float) $currentRecord['gpa'], 2)
+                                        : t('not_available')
+                                ) ?>
+                            </dd>
+                        </div>
+                        <div>
+                            <dt><?= escape(t('record_hours')) ?></dt>
+                            <dd>
+                                <?= escape(sprintf(
+                                    t('record_hours_summary'),
+                                    (int) ($currentRecord['earned_hours'] ?? 0),
+                                    (int) ($currentRecord['plan_hours'] ?? 0),
+                                    (int) ($currentRecord['remaining_hours'] ?? 0)
+                                )) ?>
+                            </dd>
+                        </div>
+                        <div>
+                            <dt><?= escape(t('record_status')) ?></dt>
+                            <dd>
+                                <span class="record-pill record-pill--analyzed">
+                                    <?= escape(t('record_status_analyzed')) ?>
+                                </span>
+                            </dd>
+                        </div>
+                    </dl>
+                <?php else: ?>
+                    <p class="record-muted-copy">
+                        <?= escape(t('record_no_current')) ?>
+                    </p>
+                <?php endif; ?>
+            </section>
+        </aside>
 
-                            <?php if (
-                                $record['status'] === 'failed'
-                                && !empty($record['analysis_error'])
-                            ): ?>
+        <div class="record-data-column">
+            <section class="record-table-section">
+                <div class="record-section-heading">
+                    <h2><?= escape(t('record_courses_title')) ?></h2>
+                    <span>
+                        <?= escape(sprintf(t('record_rows_shown'), count($currentCourses))) ?>
+                    </span>
+                </div>
+
+                <?php if (!$currentCourses): ?>
+                    <div class="record-empty-inline">
+                        <?= escape(t('record_no_courses')) ?>
+                    </div>
+                <?php else: ?>
+                    <div class="record-table-wrap">
+                        <table class="record-data-table">
+                            <thead>
                                 <tr>
-                                    <td colspan="6">
-                                        <strong>Analysis error:</strong>
-                                        <?= escape($record['analysis_error']) ?>
-                                    </td>
+                                    <th><?= escape(t('record_code')) ?></th>
+                                    <th><?= escape(t('record_course')) ?></th>
+                                    <th><?= escape(t('record_semester')) ?></th>
+                                    <th class="is-numeric"><?= escape(t('record_credit_hours')) ?></th>
+                                    <th><?= escape(t('record_course_status')) ?></th>
                                 </tr>
-                            <?php endif; ?>
-                        <?php endforeach; ?>
-                    </tbody>
-                </table>
-            </div>
-        <?php endif; ?>
-    </section>
+                            </thead>
+                            <tbody>
+                                <?php foreach ($currentCourses as $course): ?>
+                                    <tr>
+                                        <td class="record-course-code record-data-ltr">
+                                            <?= escape($course['course_code']) ?>
+                                        </td>
+                                        <td class="record-course-name" lang="en" dir="ltr">
+                                            <?= escape($course['course_name']) ?>
+                                        </td>
+                                        <td class="record-data-ltr record-table-muted">
+                                            <?= escape($course['semester_code'] ?: '—') ?>
+                                        </td>
+                                        <td class="is-numeric record-data-ltr">
+                                            <?= (int) $course['credit_hours'] ?>
+                                        </td>
+                                        <td>
+                                            <span
+                                                class="record-pill record-pill--<?= escape($course['completion_state']) ?>"
+                                            >
+                                                <?= escape(getCourseStateLabel((string) $course['completion_state'])) ?>
+                                            </span>
+                                        </td>
+                                    </tr>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                <?php endif; ?>
+            </section>
+
+            <section class="record-table-section record-history-section">
+                <div class="record-section-heading">
+                    <h2><?= escape(t('record_history')) ?></h2>
+                    <span>
+                        <?= escape(sprintf(t('record_files_count'), count($recordHistory))) ?>
+                    </span>
+                </div>
+
+                <?php if (!$recordHistory): ?>
+                    <div class="record-empty-inline">
+                        <?= escape(t('record_no_history')) ?>
+                    </div>
+                <?php else: ?>
+                    <div class="record-table-wrap">
+                        <table class="record-data-table record-history-table-new">
+                            <thead>
+                                <tr>
+                                    <th><?= escape(t('record_file')) ?></th>
+                                    <th><?= escape(t('record_size')) ?></th>
+                                    <th><?= escape(t('record_uploaded_at')) ?></th>
+                                    <th><?= escape(t('record_status')) ?></th>
+                                    <th><?= escape(t('record_current')) ?></th>
+                                    <th><?= escape(t('record_actions')) ?></th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php foreach ($recordHistory as $record): ?>
+                                    <tr>
+                                        <td class="record-history-file record-data-ltr">
+                                            <?= escape($record['original_name']) ?>
+
+                                            <?php if (
+                                                $record['status'] === 'failed'
+                                                && !empty($record['analysis_error'])
+                                            ): ?>
+                                                <small class="record-history-error" dir="auto">
+                                                    <?= escape(t('record_analysis_error')) ?>:
+                                                    <?= escape($record['analysis_error']) ?>
+                                                </small>
+                                            <?php endif; ?>
+                                        </td>
+                                        <td class="record-data-ltr record-table-muted">
+                                            <?= escape(formatFileSize((int) $record['file_size'])) ?>
+                                        </td>
+                                        <td class="record-table-muted">
+                                            <?= escape(formatRecordDate($record['created_at'] ?? null)) ?>
+                                        </td>
+                                        <td>
+                                            <span
+                                                class="record-pill record-pill--<?= escape($record['status']) ?> record-status record-status-<?= escape($record['status']) ?>"
+                                            >
+                                                <?= escape(getStatusLabel((string) $record['status'])) ?>
+                                            </span>
+                                        </td>
+                                        <td>
+                                            <?php if ((int) $record['is_current'] === 1): ?>
+                                                <span class="record-pill record-pill--current">
+                                                    <?= escape(t('yes')) ?>
+                                                </span>
+                                            <?php else: ?>
+                                                <span class="record-table-muted">—</span>
+                                            <?php endif; ?>
+                                        </td>
+                                        <td>
+                                            <?php if ($record['status'] === 'failed'): ?>
+                                                <form
+                                                    method="POST"
+                                                    class="retry-analysis-form"
+                                                >
+                                                    <input
+                                                        type="hidden"
+                                                        name="csrf_token"
+                                                        value="<?= escape($_SESSION['csrf_token']) ?>"
+                                                    >
+                                                    <input
+                                                        type="hidden"
+                                                        name="action"
+                                                        value="retry_analysis"
+                                                    >
+                                                    <input
+                                                        type="hidden"
+                                                        name="record_id"
+                                                        value="<?= (int) $record['id'] ?>"
+                                                    >
+                                                    <button
+                                                        type="submit"
+                                                        class="record-retry-button"
+                                                    >
+                                                        <?= escape(t('record_retry')) ?>
+                                                    </button>
+                                                </form>
+                                            <?php else: ?>
+                                                <span class="record-table-muted">—</span>
+                                            <?php endif; ?>
+                                        </td>
+                                    </tr>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                <?php endif; ?>
+            </section>
+        </div>
+    </div>
 </main>
 
 <?php if ($autoAnalyzeRecordId > 0): ?>
@@ -622,7 +722,6 @@ require_once __DIR__ . '/../includes/sidebar.php';
             name="csrf_token"
             value="<?= escape($_SESSION['csrf_token']) ?>"
         >
-
         <input
             type="hidden"
             name="record_id"
@@ -633,58 +732,50 @@ require_once __DIR__ . '/../includes/sidebar.php';
 
 <script>
 document.addEventListener('DOMContentLoaded', function () {
-    const retryForms = document.querySelectorAll(
-        '.retry-analysis-form'
-    );
+    const retryForms = document.querySelectorAll('.retry-analysis-form');
+    const progressAlert = document.getElementById('analysis-progress-alert');
 
-    const progressAlert = document.getElementById(
-        'analysis-progress-alert'
-    );
+    const messages = {
+        analyzing: <?= json_encode(t('record_analyzing'), JSON_UNESCAPED_UNICODE) ?>,
+        retry: <?= json_encode(t('record_retry'), JSON_UNESCAPED_UNICODE) ?>,
+        processing: <?= json_encode(t('record_status_processing'), JSON_UNESCAPED_UNICODE) ?>,
+        failed: <?= json_encode(t('record_status_failed'), JSON_UNESCAPED_UNICODE) ?>,
+        progress: <?= json_encode(t('record_processing_message'), JSON_UNESCAPED_UNICODE) ?>,
+        uploadProgress: <?= json_encode(t('record_upload_processing_message'), JSON_UNESCAPED_UNICODE) ?>,
+        serverResponse: <?= json_encode(t('record_error_server_response'), JSON_UNESCAPED_UNICODE) ?>,
+        analysisFailed: <?= json_encode(t('record_error_analysis_failed'), JSON_UNESCAPED_UNICODE) ?>
+    };
 
     retryForms.forEach(function (form) {
         form.addEventListener('submit', async function (event) {
             event.preventDefault();
 
-            const button = form.querySelector(
-                'button[type="submit"]'
-            );
-
+            const button = form.querySelector('button[type="submit"]');
             const row = form.closest('tr');
-
             const statusBadge = row
                 ? row.querySelector('.record-status')
                 : null;
 
-            /*
-             * Immediately update the UI.
-             */
             if (button) {
                 button.disabled = true;
-                button.textContent = 'Analyzing...';
+                button.textContent = messages.analyzing;
             }
 
             if (statusBadge) {
-                statusBadge.textContent = 'Processing';
+                statusBadge.textContent = messages.processing;
                 statusBadge.className =
-                    'record-status record-status-processing';
+                    'record-pill record-pill--processing record-status record-status-processing';
             }
 
-if (progressAlert) {
-    progressAlert.hidden = false;
-    progressAlert.className =
-        'alert alert-success';
-
-    if (form.id === 'auto-analysis-form') {
-        progressAlert.textContent =
-            'Your academic record was uploaded successfully and is now '
-            + 'being analyzed. You can continue using Masar while the '
-            + 'analysis is running.';
-    } else {
-        progressAlert.textContent =
-            'Your academic record is being analyzed. '
-            + 'You can continue using Masar while the analysis is running.';
-    }
-}
+            if (progressAlert) {
+                progressAlert.hidden = false;
+                progressAlert.className =
+                    'record-alert record-alert--success';
+                progressAlert.textContent =
+                    form.id === 'auto-analysis-form'
+                        ? messages.uploadProgress
+                        : messages.progress;
+            }
 
             try {
                 const response = await fetch(
@@ -701,54 +792,39 @@ if (progressAlert) {
                 try {
                     result = await response.json();
                 } catch (error) {
-                    throw new Error(
-                        'The server returned an unexpected response.'
-                    );
+                    throw new Error(messages.serverResponse);
                 }
 
                 if (!response.ok || !result.success) {
                     throw new Error(
-                        result.message
-                        || 'Academic record analysis failed.'
+                        result.message || messages.analysisFailed
                     );
                 }
 
-                /*
-                 * Analysis finished successfully.
-                 * Reload so the latest academic data and
-                 * recommendations are shown.
-                 */
                 window.location.reload();
             } catch (error) {
                 if (progressAlert) {
                     progressAlert.hidden = false;
                     progressAlert.className =
-                        'alert alert-error';
-
+                        'record-alert record-alert--error';
                     progressAlert.textContent =
-                        error.message
-                        || 'Academic record analysis failed.';
+                        error.message || messages.analysisFailed;
                 }
 
                 if (button) {
                     button.disabled = false;
-                    button.textContent = 'Retry Analysis';
+                    button.textContent = messages.retry;
                 }
 
                 if (statusBadge) {
-                    statusBadge.textContent = 'Failed';
+                    statusBadge.textContent = messages.failed;
                     statusBadge.className =
-                        'record-status record-status-failed';
+                        'record-pill record-pill--failed record-status record-status-failed';
                 }
             }
         });
     });
 
-    /*
-     * If the student returns to this page while an analysis
-     * is already running, refresh periodically until the
-     * database status changes from Processing.
-     */
     const processingRecord = document.querySelector(
         '.record-status-processing'
     );
@@ -758,13 +834,12 @@ if (progressAlert) {
             window.location.reload();
         }, 5000);
     }
-    const autoAnalysisForm = document.getElementById(
-    'auto-analysis-form'
-);
 
-if (autoAnalysisForm) {
-    autoAnalysisForm.requestSubmit();
-}
+    const autoAnalysisForm = document.getElementById('auto-analysis-form');
+
+    if (autoAnalysisForm) {
+        autoAnalysisForm.requestSubmit();
+    }
 });
 </script>
 

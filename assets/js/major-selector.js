@@ -17,6 +17,11 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     const initialMajorId = majorSelect.dataset.selectedMajor ?? '';
+    const majorPlaceholder = majorSelect.dataset.placeholderMajor
+        || 'Select Major';
+    const facultyFirstPlaceholder =
+        majorSelect.dataset.placeholderFacultyFirst
+        || 'Select Faculty First';
 
     function renderMajors(selectedMajorId = '') {
         const facultyId = Number(facultySelect.value);
@@ -26,8 +31,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const defaultOption = document.createElement('option');
         defaultOption.value = '';
         defaultOption.textContent = facultyId
-            ? 'Select Major'
-            : 'Select Faculty First';
+            ? majorPlaceholder
+            : facultyFirstPlaceholder;
 
         majorSelect.appendChild(defaultOption);
 

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../includes/auth_check.php';
 require_once __DIR__ . '/../config/database.php';
+require_once __DIR__ . '/../includes/language.php';
 require_once __DIR__ . '/../includes/academic-record-analyzer.php';
 
 header('Content-Type: application/json; charset=UTF-8');
@@ -21,7 +22,7 @@ if (($_SESSION['role'] ?? '') !== 'student') {
 
     echo json_encode([
         'success' => false,
-        'message' => 'Unauthorized request.',
+        'message' => t('record_api_unauthorized'),
     ]);
 
     exit;
@@ -32,7 +33,7 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 
     echo json_encode([
         'success' => false,
-        'message' => 'Only POST requests are allowed.',
+        'message' => t('record_api_post_only'),
     ]);
 
     exit;
@@ -49,7 +50,7 @@ if (
 
     echo json_encode([
         'success' => false,
-        'message' => 'Invalid request token.',
+        'message' => t('record_api_invalid_token'),
     ]);
 
     exit;
@@ -70,7 +71,7 @@ if ($recordId <= 0) {
 
     echo json_encode([
         'success' => false,
-        'message' => 'Invalid academic record.',
+        'message' => t('record_api_invalid_record'),
     ]);
 
     exit;
@@ -99,7 +100,7 @@ if (!$record) {
 
     echo json_encode([
         'success' => false,
-        'message' => 'Academic record not found.',
+        'message' => t('record_api_not_found'),
     ]);
 
     exit;
@@ -114,7 +115,7 @@ if (!in_array($record['status'], ['uploaded', 'failed'], true)) {
 
     echo json_encode([
         'success' => false,
-        'message' => 'This academic record cannot be analyzed right now.',
+        'message' => t('record_api_cannot_analyze'),
         'status' => $record['status'],
     ]);
 
@@ -141,7 +142,7 @@ if (!is_file($pdfPath)) {
 
     echo json_encode([
         'success' => false,
-        'message' => 'The uploaded academic record file could not be found.',
+        'message' => t('record_api_file_missing'),
     ]);
 
     exit;
@@ -177,7 +178,7 @@ try {
     echo json_encode([
         'success' => true,
         'status' => 'analyzed',
-        'message' => 'Academic record analyzed successfully.',
+        'message' => t('record_api_success'),
     ]);
 } catch (Throwable $exception) {
     markAnalysisFailed(
@@ -191,6 +192,6 @@ try {
     echo json_encode([
         'success' => false,
         'status' => 'failed',
-        'message' => 'Academic record analysis failed.',
+        'message' => t('record_error_analysis_failed'),
     ]);
 }
