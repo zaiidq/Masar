@@ -4,11 +4,24 @@
     padding: 0;
 }
 
+:root {
+    --color-primary: #2E5E4E;
+    --color-primary-soft: #6D8F7B;
+    --color-text: #1E1E1E;
+    --color-text-muted: #667085;
+    --color-background: #FAFAF8;
+    --color-surface: #FFFFFF;
+    --color-surface-muted: #F2F3F5;
+    --color-border: #E4E7EC;
+
+    --font-en: "DM Sans", sans-serif;
+    --font-ar: "Tajawal", sans-serif;
+}
+
 body {
-    min-height: 100vh;
-    font-family: Arial, sans-serif;
-    background: #f4f7fb;
-    color: #1f2937;
+    font-family: var(--font-en);
+    background: var(--color-background);
+    color: var(--color-text);
 }
 
 .auth-page {
@@ -804,4 +817,32 @@ body {
     cursor: pointer;
     font-size: 13px;
     font-weight: 600;
+}
+
+html[lang="en"] body {
+    font-family: var(--font-en);
+}
+
+html[lang="ar"] body {
+    font-family: var(--font-ar);
+}
+
+.language-switch {
+    color: var(--color-primary);
+    font-weight: 600;
+    text-decoration: none;
+}
+
+.language-switch:hover {
+    text-decoration: underline;
+}
+
+.sidebar-user .language-switch {
+    color: var(--color-primary-soft);
+    font-weight: 600;
+    text-decoration: none;
+}
+
+.sidebar-user .language-switch:hover {
+    color: white;
 }

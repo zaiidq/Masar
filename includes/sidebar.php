@@ -47,18 +47,33 @@
         <a href="/masar/student/chatbot.php">
             AI Assistant
         </a>
-        
-
 
     </nav>
 
-    <div class="sidebar-user">
-        <strong>
-            <?= htmlspecialchars($_SESSION['full_name']) ?>
-        </strong>
 
-        <a href="/masar/auth/logout.php">
-            Logout
-        </a>
-    </div>
+    <div class="sidebar-user">
+
+    <a
+        href="<?= htmlspecialchars(
+            $languageSwitchUrl,
+            ENT_QUOTES,
+            'UTF-8'
+        ) ?>"
+        class="language-switch"
+    >
+        <?= htmlspecialchars(
+            t('switch_language'),
+            ENT_QUOTES,
+            'UTF-8'
+        ) ?>
+    </a>
+
+    <strong>
+        <?= htmlspecialchars($_SESSION['full_name']) ?>
+    </strong>
+
+    <a href="/masar/auth/logout.php">
+        Logout
+    </a>
+</div>
 </aside>
