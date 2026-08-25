@@ -9,7 +9,7 @@ require_once __DIR__ . '/gemini-client.php';
  * Bump this whenever the prompt or schema below changes.
  * Stored per record so past analyses stay explainable.
  */
-const MASAR_PROMPT_VERSION = 'v3';
+const MASAR_PROMPT_VERSION = 'v4';
 
 /**
  * Instructions given to the model on every analysis.
@@ -57,10 +57,18 @@ The Academic Record may contain:
 - semester codes
 - an "Incomplete Courses" section
 
-Course codes contain exactly 7 digits.
+Course codes use a canonical 7-digit format.
+
+Some MEU Academic Records may prefix course codes with the letter "A",
+for example A0411201. The "A" prefix is only a formatting prefix and
+does not change the course identity. Treat A0411201 and 0411201 as the
+same course, and always return the canonical 7-digit code without the
+"A" prefix.
 
 Prerequisites normally appear in parentheses and may contain multiple
-course codes separated by "&".
+course codes separated by "&". Prerequisite codes may also use the
+optional "A" prefix. Apply the same normalization rule to prerequisite
+codes and return them without the "A" prefix.
 
 Because of the PDF layout, a prerequisite may sometimes appear on the line
 immediately before its course instead of inside the same reconstructed row.
@@ -418,12 +426,31 @@ function academicRecordResponseSchema(): array
         ],
     ];
 }
+
+/**
+ * Convert MEU course codes to one canonical format.
+ *
+ * Both 0411201 and A0411201 represent the same course.
+ * Internally Masar always uses the 7-digit form.
+ */
+function normaliseCourseCode(string $code): string
+{
+    $code = strtoupper(trim($code));
+
+    if (preg_match('/^A?(\d{7})$/', $code, $matches)) {
+        return $matches[1];
+    }
+
+    return $code;
+}
+
 /**
  * Extract recommendation-critical facts directly from the reconstructed
  * PDF rows, independently from Gemini.
  *
  * @return array<string, array<string, mixed>>
  */
+
 function extractDeterministicCourseFacts(string $rows): array
 {
     $facts = [];
@@ -454,21 +481,26 @@ function extractDeterministicCourseFacts(string $rows): array
          */
         if (
             preg_match(
-                '/^\(\s*(\d{7}(?:\s*&\s*\d{7})*)\s*\)$/',
+                '/^\(\s*(A?\d{7}(?:\s*&\s*A?\d{7})*)\s*\)$/i',
                 $line,
                 $prerequisiteMatch
             )
         ) {
             preg_match_all(
-                '/\d{7}/',
-                $prerequisiteMatch[1],
-                $prerequisiteCodes
-            );
+    '/A?\d{7}/i',
+    $prerequisiteMatch[1],
+    $prerequisiteCodes
+);
 
             $pendingPrerequisites =
-                array_values(
-                    array_unique($prerequisiteCodes[0] ?? [])
-                );
+    array_values(
+        array_unique(
+            array_map(
+                'normaliseCourseCode',
+                $prerequisiteCodes[0] ?? []
+            )
+        )
+    );
 
             continue;
         }
@@ -480,7 +512,7 @@ function extractDeterministicCourseFacts(string $rows): array
          */
         if (
             !preg_match(
-                '/^(\d{7})\s*\|/',
+                '/^(A?\d{7})\s*\|/i',
                 $line,
                 $courseMatch
             )
@@ -488,35 +520,37 @@ function extractDeterministicCourseFacts(string $rows): array
             continue;
         }
 
-        $courseCode = $courseMatch[1];
+        $courseCode = normaliseCourseCode($courseMatch[1]);
 
-        /*
-         * Extract prerequisites that appear inside the same row.
-         */
-        $prerequisites = [];
+  /*
+ * Extract prerequisites that appear inside the same row.
+ */
+$prerequisites = [];
 
-        preg_match_all(
-            '/\(([^)]*)\)/',
-            $line,
-            $parenthesizedGroups
-        );
+preg_match_all(
+    '/\(([^)]+)\)/',
+    $line,
+    $prerequisiteGroups
+);
 
-        foreach ($parenthesizedGroups[1] ?? [] as $group) {
-            preg_match_all(
-                '/\d{7}/',
-                $group,
-                $codes
-            );
+foreach ($prerequisiteGroups[1] ?? [] as $group) {
+    preg_match_all(
+        '/A?\d{7}/i',
+        $group,
+        $codes
+    );
 
-            foreach ($codes[0] ?? [] as $code) {
-                if ($code !== $courseCode) {
-                    $prerequisites[] = $code;
-                }
-            }
+    foreach ($codes[0] ?? [] as $code) {
+        $code = normaliseCourseCode($code);
+
+        if ($code !== $courseCode) {
+            $prerequisites[] = $code;
         }
+    }
+}
 
-        $prerequisites =
-            array_values(array_unique($prerequisites));
+$prerequisites =
+    array_values(array_unique($prerequisites));
 
         /*
          * If no prerequisite was reconstructed on the same line,
@@ -698,7 +732,9 @@ function validateRecommendations(
     $maximumHours = 18;
 
     foreach ($recommendations as $recommendation) {
-        $code = trim((string) ($recommendation['course_code'] ?? ''));
+        $code = normaliseCourseCode(
+    (string) ($recommendation['course_code'] ?? '')
+);
 
         if ($code === '') {
             continue;
@@ -816,7 +852,9 @@ function validateRecommendations(
  */
 function normaliseCourse(array $raw): ?array
 {
-    $code = trim((string) ($raw['course_code'] ?? ''));
+    $code = normaliseCourseCode(
+    (string) ($raw['course_code'] ?? '')
+);
     $name = trim((string) ($raw['course_name'] ?? ''));
 
     if ($code === '' || $name === '') {
@@ -826,12 +864,17 @@ function normaliseCourse(array $raw): ?array
     $prerequisites = [];
 
     foreach ((array) ($raw['prerequisite_codes'] ?? []) as $prerequisite) {
-        $prerequisite = trim((string) $prerequisite);
+        $prerequisite = normaliseCourseCode(
+    (string) $prerequisite
+);
 
-        if ($prerequisite !== '') {
-            $prerequisites[] = $prerequisite;
-        }
+if ($prerequisite !== '') {
+    $prerequisites[] = $prerequisite;
+}
     }
+    $prerequisites = array_values(
+    array_unique($prerequisites)
+);
 
     $allowedStates = ['completed', 'in_progress', 'failed', 'remaining'];
     $state = (string) ($raw['completion_state'] ?? 'remaining');
