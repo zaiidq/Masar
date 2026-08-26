@@ -4,8 +4,19 @@ declare(strict_types=1);
 
 session_start();
 
+if (isset($_SESSION['user_id'])) {
+    if (($_SESSION['role'] ?? '') === 'admin') {
+        header('Location: ../admin/dashboard.php');
+    } else {
+        header('Location: ../student/dashboard.php');
+    }
+
+    exit;
+}
+
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../includes/language.php';
+require_once __DIR__ . '/../includes/activity-logger.php';
 
 $error = '';
 $email = '';
@@ -28,20 +39,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $user = $stmt->fetch();
 
     if ($user && password_verify($password, $user['password'])) {
-        session_regenerate_id(true);
+    session_regenerate_id(true);
 
-        $_SESSION['user_id'] = $user['id'];
-        $_SESSION['full_name'] = $user['full_name'];
-        $_SESSION['role'] = $user['role'];
+    $_SESSION['user_id'] = $user['id'];
+    $_SESSION['full_name'] = $user['full_name'];
+    $_SESSION['role'] = $user['role'];
 
-        if ($user['role'] === 'admin') {
-            header('Location: ../admin/dashboard.php');
-        } else {
-            header('Location: ../student/dashboard.php');
-        }
+    logActivity(
+        $pdo,
+        'LOGIN_SUCCESS',
+        (int) $user['id'],
+        'role=' . $user['role']
+    );
 
-        exit;
+    if ($user['role'] === 'admin') {
+        header('Location: ../admin/dashboard.php');
+    } else {
+        header('Location: ../student/dashboard.php');
     }
+
+    exit;
+}
+logActivity(
+    $pdo,
+    'LOGIN_FAILED',
+    $user ? (int) $user['id'] : null,
+    $user ? 'invalid_password' : 'unknown_email'
+);
 
     $error = t('auth_login_error');
 }

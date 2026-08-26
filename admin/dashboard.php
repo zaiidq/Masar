@@ -39,6 +39,20 @@ $linkStats = $pdo->query(
      FROM university_links'
 )->fetch();
 
+/*
+|--------------------------------------------------------------------------
+| Activity log statistics
+|--------------------------------------------------------------------------
+*/
+
+$activityStats = $pdo->query(
+    "SELECT
+        COUNT(*) AS total_activity,
+        SUM(event_type = 'LOGIN_SUCCESS') AS successful_logins,
+        SUM(event_type = 'LOGIN_FAILED') AS failed_logins
+     FROM activity_logs"
+)->fetch();
+
 $totalUsers = (int) ($userStats['total_users'] ?? 0);
 $totalStudents = (int) ($userStats['total_students'] ?? 0);
 $totalAdmins = (int) ($userStats['total_admins'] ?? 0);
@@ -46,6 +60,10 @@ $totalAdmins = (int) ($userStats['total_admins'] ?? 0);
 $totalLinks = (int) ($linkStats['total_links'] ?? 0);
 $activeLinks = (int) ($linkStats['active_links'] ?? 0);
 $hiddenLinks = (int) ($linkStats['hidden_links'] ?? 0);
+
+$totalActivity = (int) ($activityStats['total_activity'] ?? 0);
+$successfulLogins = (int) ($activityStats['successful_logins'] ?? 0);
+$failedLogins = (int) ($activityStats['failed_logins'] ?? 0);
 
 $activeLinkShare = $totalLinks > 0
     ? min(100, ($activeLinks / $totalLinks) * 100)
@@ -133,12 +151,22 @@ require_once __DIR__ . '/../includes/admin-sidebar.php';
             <div class="admin-link-legend-new">
                 <span>
                     <i class="admin-link-legend-new__dot admin-link-legend-new__dot--active"></i>
-                    <?= htmlspecialchars(sprintf(t('admin_active_links_count'), $activeLinks)) ?>
+                    <?= htmlspecialchars(
+                        sprintf(
+                            t('admin_active_links_count'),
+                            $activeLinks
+                        )
+                    ) ?>
                 </span>
 
                 <span>
                     <i class="admin-link-legend-new__dot admin-link-legend-new__dot--hidden"></i>
-                    <?= htmlspecialchars(sprintf(t('admin_hidden_links_count'), $hiddenLinks)) ?>
+                    <?= htmlspecialchars(
+                        sprintf(
+                            t('admin_hidden_links_count'),
+                            $hiddenLinks
+                        )
+                    ) ?>
                 </span>
             </div>
         </article>
@@ -161,6 +189,59 @@ require_once __DIR__ . '/../includes/admin-sidebar.php';
             class="admin-primary-action-new"
         >
             <span><?= htmlspecialchars(t('admin_manage_links_action')) ?></span>
+            <span aria-hidden="true">→</span>
+        </a>
+    </section>
+
+    <!-- Activity Log -->
+    <section
+        class="admin-manage-strip-new"
+        style="margin-top: 18px;"
+    >
+        <div>
+            <span class="admin-manage-strip-new__label">
+                Monitoring
+            </span>
+
+            <h2>Activity Log</h2>
+
+            <p>
+                Monitor important Masar activity including successful
+                logins, failed login attempts, user IP addresses,
+                uploads and analysis events.
+            </p>
+
+            <div
+                style="
+                    display: flex;
+                    flex-wrap: wrap;
+                    gap: 18px;
+                    margin-top: 14px;
+                    font-size: 14px;
+                "
+            >
+                <span>
+                    <strong><?= number_format($totalActivity) ?></strong>
+                    total events
+                </span>
+
+                <span>
+                    <strong><?= number_format($successfulLogins) ?></strong>
+                    successful logins
+                </span>
+
+                <span>
+                    <strong><?= number_format($failedLogins) ?></strong>
+                    failed logins
+                </span>
+            </div>
+        </div>
+
+        <a
+            href="/masar/admin/activity-log.php"
+            class="admin-primary-action-new"
+        >
+            <span>View Activity Log</span>
             <span aria-hidden="true">→</span>
         </a>
     </section>

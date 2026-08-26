@@ -61,6 +61,15 @@ if (
             >
                 <?= htmlspecialchars(t('admin_links_nav')) ?>
             </a>
+
+            <a
+    href="/masar/admin/activity-log.php"
+    class="<?= $currentAdminPage === 'activity-log.php'
+        ? 'is-active'
+        : '' ?>"
+>
+    Activity Log
+</a>
         </nav>
 
         <div class="admin-nav-actions">
@@ -202,4 +211,13 @@ if (
     >
         <?= htmlspecialchars(t('admin_links_short')) ?>
     </a>
+
+    <a
+    href="/masar/admin/activity-log.php"
+    class="<?= $currentAdminPage === 'activity-log.php'
+        ? 'is-active'
+        : '' ?>"
+>
+    Activity Log
+</a>
 </nav>

@@ -2,8 +2,21 @@
 
 declare(strict_types=1);
 
+session_start();
+
+if (isset($_SESSION['user_id'])) {
+    if (($_SESSION['role'] ?? '') === 'admin') {
+        header('Location: ../admin/dashboard.php');
+    } else {
+        header('Location: ../student/dashboard.php');
+    }
+
+    exit;
+}
+
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../includes/language.php';
+require_once __DIR__ . '/../includes/activity-logger.php';
 
 $errors = [];
 $success = '';
@@ -125,17 +138,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             );
 
             $stmt->execute([
-                'full_name' => $fullName,
-                'email' => $email,
-                'password' => $hashedPassword,
-                'university_id' => $universityId !== ''
-                    ? $universityId
-                    : null,
-                'faculty_id' => $selectedFacultyId,
-                'major_id' => $selectedMajorId,
-            ]);
+    'full_name' => $fullName,
+    'email' => $email,
+    'password' => $hashedPassword,
+    'university_id' => $universityId !== ''
+        ? $universityId
+        : null,
+    'faculty_id' => $selectedFacultyId,
+    'major_id' => $selectedMajorId,
+]);
 
-            $success = t('auth_register_success');
+$newUserId = (int) $pdo->lastInsertId();
+
+logActivity(
+    $pdo,
+    'REGISTER',
+    $newUserId,
+    'role=student'
+);
+
+$success = t('auth_register_success');
 
             $fullName = '';
             $universityId = '';
