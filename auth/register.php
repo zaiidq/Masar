@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+require_once __DIR__ . '/../includes/session-config.php';
 session_start();
 
 if (isset($_SESSION['user_id'])) {

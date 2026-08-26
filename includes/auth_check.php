@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 if (session_status() === PHP_SESSION_NONE) {
+    require_once __DIR__ . '/session-config.php';
     session_start();
 }
 
