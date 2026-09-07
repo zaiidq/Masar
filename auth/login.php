@@ -169,15 +169,28 @@ $languageSwitchUrl = '/masar/switch-language.php?lang='
                 </div>
 
                 <div class="auth-field-new">
-                    <label for="password"><?= htmlspecialchars(t('auth_password')) ?></label>
-                    <input
-                        type="password"
-                        id="password"
-                        name="password"
-                        autocomplete="current-password"
-                        required
-                    >
-                </div>
+    <label for="password"><?= htmlspecialchars(t('auth_password')) ?></label>
+
+    <div class="password-field-wrapper">
+        <input
+            type="password"
+            id="password"
+            name="password"
+            autocomplete="current-password"
+            required
+        >
+
+        <button
+            type="button"
+            class="password-toggle"
+            id="passwordToggle"
+            aria-label="Show password"
+            aria-pressed="false"
+        >
+            Show
+        </button>
+    </div>
+</div>
 
                 <button type="submit" class="auth-submit-new">
                     <?= htmlspecialchars(t('auth_login_action')) ?>
@@ -194,5 +207,26 @@ $languageSwitchUrl = '/masar/switch-language.php?lang='
         <p class="auth-pane-footer-new"><?= htmlspecialchars(t('auth_footer_note')) ?></p>
     </section>
 </main>
+<script>
+    const passwordInput = document.getElementById('password');
+    const passwordToggle = document.getElementById('passwordToggle');
+
+    if (passwordInput && passwordToggle) {
+        passwordToggle.addEventListener('click', function () {
+            const isHidden = passwordInput.type === 'password';
+
+            passwordInput.type = isHidden ? 'text' : 'password';
+            passwordToggle.textContent = isHidden ? 'Hide' : 'Show';
+            passwordToggle.setAttribute(
+                'aria-pressed',
+                isHidden ? 'true' : 'false'
+            );
+            passwordToggle.setAttribute(
+                'aria-label',
+                isHidden ? 'Hide password' : 'Show password'
+            );
+        });
+    }
+</script>
 </body>
 </html>

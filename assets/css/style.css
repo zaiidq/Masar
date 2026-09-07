@@ -4788,3 +4788,39 @@ html[lang="ar"] .admin-links-table-new th {
         grid-column: 1;
     }
 }
+
+.password-field-wrapper {
+    position: relative;
+}
+
+.password-field-wrapper input {
+    width: 100%;
+    padding-right: 72px;
+}
+
+.password-toggle {
+    position: absolute;
+    top: 50%;
+    right: 12px;
+    transform: translateY(-50%);
+    border: 0;
+    background: transparent;
+    color: #28624f;
+    font: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.password-toggle:hover {
+    text-decoration: underline;
+}
+[dir="rtl"] .password-field-wrapper input {
+    padding-right: 14px;
+    padding-left: 72px;
+}
+
+[dir="rtl"] .password-toggle {
+    right: auto;
+    left: 12px;
+}
