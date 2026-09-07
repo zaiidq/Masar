@@ -4594,7 +4594,7 @@ html[lang="ar"] .admin-links-table-new th {
         z-index: 950;
         min-block-size: 62px;
         display: grid;
-        grid-template-columns: repeat(2, 1fr);
+        grid-template-columns: repeat(3, 1fr);
         background: var(--color-surface);
         border-block-start: 1px solid var(--color-border);
         text-align: center;
@@ -4823,4 +4823,753 @@ html[lang="ar"] .admin-links-table-new th {
 [dir="rtl"] .password-toggle {
     right: auto;
     left: 12px;
+}
+
+/* =========================================================
+   Masar Theme System — Dark Mode
+   ========================================================= */
+
+html {
+    color-scheme: light;
+}
+
+html[data-theme="dark"] {
+    color-scheme: dark;
+
+    --color-primary: #79B79C;
+    --color-primary-soft: #5F8F79;
+    --color-text: #F2F4F1;
+    --color-text-muted: #A7B0AA;
+    --color-background: #111512;
+    --color-surface: #181D1A;
+    --color-surface-muted: #202622;
+    --color-border: #303832;
+}
+
+html[data-theme="dark"] body {
+    background: var(--color-background);
+    color: var(--color-text);
+}
+
+/* ---------- Theme toggle ---------- */
+
+.theme-toggle {
+    inline-size: 36px;
+    block-size: 36px;
+    padding: 0;
+
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: none;
+
+    border: 1px solid var(--color-border);
+    border-radius: 50%;
+
+    background: transparent;
+    color: var(--color-primary);
+
+    font: inherit;
+    cursor: pointer;
+
+    transition:
+        background 0.15s ease,
+        border-color 0.15s ease,
+        color 0.15s ease,
+        transform 0.15s ease;
+}
+
+.theme-toggle:hover,
+.theme-toggle:focus-visible {
+    border-color: var(--color-primary);
+    background: var(--color-surface-muted);
+    color: var(--color-primary);
+    outline: none;
+}
+
+.theme-toggle:hover {
+    transform: translateY(-1px);
+}
+
+.theme-toggle__icon {
+    display: block;
+    font-family: var(--font-en);
+    font-size: 19px;
+    font-weight: 500;
+    line-height: 1;
+}
+
+/* ---------- Shared / legacy surfaces ---------- */
+
+html[data-theme="dark"] .auth-card,
+html[data-theme="dark"] .content-card,
+html[data-theme="dark"] .university-link-card,
+html[data-theme="dark"] .empty-state,
+html[data-theme="dark"] .academic-record-card {
+    background: var(--color-surface);
+    color: var(--color-text);
+    border-color: var(--color-border);
+    box-shadow: 0 8px 26px rgba(0, 0, 0, 0.24);
+}
+
+html[data-theme="dark"] .auth-logo p,
+html[data-theme="dark"] .auth-footer,
+html[data-theme="dark"] .form-help,
+html[data-theme="dark"] .university-link-card p,
+html[data-theme="dark"] .empty-state p,
+html[data-theme="dark"] .academic-record-page .page-heading p,
+html[data-theme="dark"] .upload-instructions,
+html[data-theme="dark"] .academic-record-form small {
+    color: var(--color-text-muted);
+}
+
+html[data-theme="dark"] .form-group input,
+html[data-theme="dark"] .form-group select,
+html[data-theme="dark"] .academic-record-form input[type="file"] {
+    border-color: var(--color-border);
+    background: var(--color-surface);
+    color: var(--color-text);
+}
+
+html[data-theme="dark"] .form-group select:disabled {
+    background: var(--color-surface-muted);
+    color: #768078;
+}
+
+html[data-theme="dark"] .record-history-table th {
+    background: var(--color-surface-muted);
+}
+
+html[data-theme="dark"] .record-history-table th,
+html[data-theme="dark"] .record-history-table td {
+    border-color: var(--color-border);
+}
+
+/* ---------- Student navigation ---------- */
+
+html[data-theme="dark"] body.role-student {
+    background: var(--color-background);
+}
+
+html[data-theme="dark"] .student-site-header,
+html[data-theme="dark"] .student-mobile-bottom-nav {
+    background: var(--color-surface);
+    border-color: var(--color-border);
+}
+
+html[data-theme="dark"] .student-primary-nav a {
+    color: #C3CAC5;
+}
+
+html[data-theme="dark"] .student-primary-nav a:hover,
+html[data-theme="dark"] .student-primary-nav a.is-active {
+    color: var(--color-primary);
+}
+
+html[data-theme="dark"] .student-language-switch {
+    color: var(--color-primary);
+}
+
+html[data-theme="dark"] .student-ask-masar {
+    border-color: #35473E;
+    background: #202A24;
+    color: var(--color-primary);
+}
+
+html[data-theme="dark"] .student-user-dropdown {
+    border-color: var(--color-border);
+    background: var(--color-surface);
+    box-shadow: 0 12px 34px rgba(0, 0, 0, 0.36);
+}
+
+html[data-theme="dark"] .student-user-dropdown::before {
+    border-color: var(--color-border);
+    background: var(--color-surface);
+}
+
+html[data-theme="dark"] .student-user-dropdown a {
+    color: var(--color-text);
+}
+
+html[data-theme="dark"] .student-user-dropdown a:hover,
+html[data-theme="dark"] .student-user-dropdown a:focus-visible,
+html[data-theme="dark"] .student-user-dropdown a.is-active {
+    background: var(--color-surface-muted);
+    color: var(--color-primary);
+}
+
+html[data-theme="dark"] .student-user-dropdown__logout {
+    border-color: var(--color-border);
+}
+
+html[data-theme="dark"] .student-mobile-bottom-nav a,
+html[data-theme="dark"] .student-mobile-bottom-nav span {
+    color: var(--color-text-muted);
+}
+
+html[data-theme="dark"] .student-mobile-bottom-nav a.is-active {
+    color: var(--color-primary);
+}
+
+
+
+/* ---------- My Path ---------- */
+
+html[data-theme="dark"] .path-page {
+    --path-forest: #79B79C;
+    --path-forest-dark: #91C9B1;
+    --path-sage: #638B76;
+    --path-tint: #202A24;
+    --path-clay: #D48B70;
+    --path-clay-tint: #34231D;
+    --path-ink: #F2F4F1;
+    --path-body: #C7CDC9;
+    --path-muted: #9CA69F;
+    --path-line: #343C36;
+    --path-hair: #2A312C;
+    --path-track: #2B322D;
+    --path-surface: #171C19;
+}
+
+html[data-theme="dark"] .path-progress__track,
+html[data-theme="dark"] .path-legend__swatch--rest {
+    border-color: #465048;
+}
+
+html[data-theme="dark"] .path-progress__marker {
+    background: var(--color-background);
+}
+
+html[data-theme="dark"] .path-note:not(.path-note--attention),
+html[data-theme="dark"] .path-empty {
+    background: var(--path-surface);
+}
+
+
+
+/* ---------- Student Record / Recommendations / Profile / Resources ---------- */
+
+html[data-theme="dark"] .record-page,
+html[data-theme="dark"] .recs-page,
+html[data-theme="dark"] .profile-page-new,
+html[data-theme="dark"] .resources-page-new {
+    --ui-forest: #79B79C;
+    --ui-forest-dark: #91C9B1;
+    --ui-sage: #638B76;
+    --ui-green-tint: #202A24;
+    --ui-green-line: #35473E;
+    --ui-clay: #D48B70;
+    --ui-clay-tint: #34231D;
+    --ui-ink: #F2F4F1;
+    --ui-body: #C7CDC9;
+    --ui-muted: #9CA69F;
+    --ui-line: #343C36;
+    --ui-hair: #2A312C;
+    --ui-surface: #171C19;
+    --ui-white: #1B211D;
+}
+
+html[data-theme="dark"] .record-upload-panel {
+    border-color: #435448;
+    background: var(--ui-green-tint);
+}
+
+html[data-theme="dark"] .record-upload-panel p,
+html[data-theme="dark"] .recs-hero__copy p {
+    color: var(--ui-body);
+}
+
+html[data-theme="dark"] .record-status-panel,
+html[data-theme="dark"] .record-current-panel,
+html[data-theme="dark"] .profile-account-panel-new {
+    border-color: var(--ui-line);
+    background: rgba(24, 29, 26, 0.82);
+}
+
+html[data-theme="dark"] .record-status-dot {
+    border-color: #5C665F;
+}
+
+html[data-theme="dark"] .profile-field-new input,
+html[data-theme="dark"] .profile-field-new select {
+    border-color: #444D46;
+    background: #181D1A;
+    color: var(--ui-ink);
+}
+
+html[data-theme="dark"] .profile-field-new select:disabled {
+    background: #222823;
+    color: var(--ui-muted);
+}
+
+html[data-theme="dark"] .record-pill {
+    background: #292F2B;
+    color: var(--ui-body);
+}
+
+html[data-theme="dark"] .record-pill--completed,
+html[data-theme="dark"] .record-pill--analyzed {
+    background: #203128;
+    color: var(--ui-forest);
+}
+
+html[data-theme="dark"] .record-pill--in_progress,
+html[data-theme="dark"] .record-pill--processing,
+html[data-theme="dark"] .record-pill--uploaded {
+    background: #252E28;
+    color: #A7B6AC;
+}
+
+html[data-theme="dark"] .record-pill--remaining {
+    background: #2B2D28;
+    color: var(--ui-muted);
+}
+
+html[data-theme="dark"] .record-retry-button {
+    border-color: #5B4037;
+}
+
+html[data-theme="dark"] .recs-context > span:not(:last-child)::after {
+    color: #58605A;
+}
+
+html[data-theme="dark"] .recs-explainer {
+    background: var(--ui-green-tint);
+}
+
+html[data-theme="dark"] .recs-empty,
+html[data-theme="dark"] .resources-empty-new {
+    background: var(--ui-surface);
+}
+
+
+
+/* ---------- Authentication ---------- */
+
+html[data-theme="dark"] .auth-body-new {
+    background: var(--color-background);
+    color: var(--color-text);
+}
+
+html[data-theme="dark"] .auth-form-pane-new {
+    background: #111512;
+}
+
+html[data-theme="dark"] .auth-form-heading-new h2,
+html[data-theme="dark"] .auth-field-new label {
+    color: #F2F4F1;
+}
+
+html[data-theme="dark"] .auth-form-heading-new > p:last-child,
+html[data-theme="dark"] .auth-switch-copy-new,
+html[data-theme="dark"] .auth-field-new small,
+html[data-theme="dark"] .auth-pane-footer-new {
+    color: #9CA69F;
+}
+
+html[data-theme="dark"] .auth-field-new input,
+html[data-theme="dark"] .auth-field-new select {
+    border-color: #3B443E;
+    background: #181D1A;
+    color: #F2F4F1;
+}
+
+html[data-theme="dark"] .auth-field-new input::placeholder {
+    color: #737E76;
+}
+
+html[data-theme="dark"] .auth-field-new select:disabled {
+    background: #222823;
+    color: #768078;
+}
+
+html[data-theme="dark"] .auth-toolbar-new {
+    border-color: var(--color-border);
+}
+
+html[data-theme="dark"] .auth-alert-new--error {
+    border-color: #B86A5A;
+    background: #30201C;
+    color: #E7A696;
+}
+
+html[data-theme="dark"] .auth-alert-new--success {
+    border-color: #79B79C;
+    background: #1D2B23;
+    color: #9DD0B8;
+}
+
+html[data-theme="dark"] .auth-language-new,
+html[data-theme="dark"] .auth-form-heading-new__eyebrow,
+html[data-theme="dark"] .auth-switch-copy-new a,
+html[data-theme="dark"] .password-toggle {
+    color: #79B79C;
+}
+
+/* ---------- Admin navigation ---------- */
+
+html[data-theme="dark"] body.role-admin {
+    background: var(--color-background);
+}
+
+html[data-theme="dark"] .admin-site-header,
+html[data-theme="dark"] .admin-mobile-bottom-nav {
+    background: var(--color-surface);
+    border-color: var(--color-border);
+}
+
+html[data-theme="dark"] .admin-brand {
+    color: var(--color-text);
+}
+
+html[data-theme="dark"] .admin-brand__badge,
+html[data-theme="dark"] .admin-mobile-brand span {
+    border-color: #3B443E;
+    color: #A7B0AA;
+}
+
+html[data-theme="dark"] .admin-primary-nav a {
+    color: #C3CAC5;
+}
+
+html[data-theme="dark"] .admin-primary-nav a:hover,
+html[data-theme="dark"] .admin-primary-nav a.is-active,
+html[data-theme="dark"] .admin-language-switch {
+    color: var(--color-primary);
+}
+
+html[data-theme="dark"] .admin-user-dropdown {
+    border-color: var(--color-border);
+    background: var(--color-surface);
+    box-shadow: 0 12px 34px rgba(0, 0, 0, 0.36);
+}
+
+html[data-theme="dark"] .admin-user-dropdown::before {
+    border-color: var(--color-border);
+    background: var(--color-surface);
+}
+
+html[data-theme="dark"] .admin-user-dropdown__identity {
+    border-color: var(--color-border);
+}
+
+html[data-theme="dark"] .admin-user-dropdown__identity strong {
+    color: var(--color-text);
+}
+
+html[data-theme="dark"] .admin-user-dropdown__identity span {
+    color: var(--color-text-muted);
+}
+
+html[data-theme="dark"] .admin-user-dropdown a {
+    color: #D58D7B;
+}
+
+html[data-theme="dark"] .admin-user-dropdown a:hover,
+html[data-theme="dark"] .admin-user-dropdown a:focus-visible {
+    background: #30201C;
+    color: #F0AB99;
+}
+
+html[data-theme="dark"] .admin-mobile-bottom-nav a {
+    color: var(--color-text-muted);
+}
+
+html[data-theme="dark"] .admin-mobile-bottom-nav a.is-active {
+    color: var(--color-primary);
+}
+
+/* ---------- Admin pages ---------- */
+
+html[data-theme="dark"] .admin-page {
+    --admin-forest: #79B79C;
+    --admin-forest-dark: #91C9B1;
+    --admin-sage: #638B76;
+    --admin-green-tint: #202A24;
+    --admin-green-line: #35473E;
+    --admin-clay: #D48B70;
+    --admin-clay-tint: #34231D;
+    --admin-ink: #F2F4F1;
+    --admin-body: #C7CDC9;
+    --admin-muted: #9CA69F;
+    --admin-line: #343C36;
+    --admin-hair: #2A312C;
+    --admin-surface: #171C19;
+    --admin-white: #1B211D;
+}
+
+
+html[data-theme="dark"] .admin-overview-panel-new:not(.admin-overview-panel-new--users) {
+    background: rgba(24, 29, 26, 0.82);
+}
+
+html[data-theme="dark"] .admin-overview-panel-new--users {
+    background: #2E5E4E;
+    border-color: #4B806D;
+}
+
+html[data-theme="dark"] .admin-link-health-new {
+    background: #2B322D;
+}
+
+html[data-theme="dark"] .admin-link-legend-new__dot--hidden {
+    border-color: #667069;
+}
+
+html[data-theme="dark"] .admin-notice-new--error {
+    background: #30201C;
+    color: #E7A696;
+}
+
+html[data-theme="dark"] .admin-notice-new--success {
+    background: #1D2B23;
+    color: #9DD0B8;
+}
+
+html[data-theme="dark"] .admin-field-new input,
+html[data-theme="dark"] .admin-field-new textarea {
+    border-color: #3B443E;
+    background: var(--admin-white);
+    color: var(--admin-ink);
+}
+
+html[data-theme="dark"] .admin-row-action-new {
+    border-color: #3B443E;
+    color: var(--admin-body);
+}
+
+html[data-theme="dark"] .admin-row-action-new--edit {
+    border-color: var(--admin-green-line);
+    background: var(--admin-green-tint);
+    color: var(--admin-forest);
+}
+
+html[data-theme="dark"] .admin-row-action-new--danger {
+    border-color: #5B4037;
+    color: #D99783;
+}
+
+html[data-theme="dark"] .admin-row-action-new--danger:hover,
+html[data-theme="dark"] .admin-row-action-new--danger:focus-visible {
+    border-color: #8D5D4F;
+    background: #30201C;
+    color: #F0AB99;
+}
+
+/* ---------- Activity Log page ---------- */
+
+html[data-theme="dark"] body.role-admin .admin-activity-page .activity-summary-grid {
+    border-color: var(--color-border);
+    background: var(--color-border);
+}
+
+html[data-theme="dark"] body.role-admin .admin-activity-page .activity-summary-card,
+html[data-theme="dark"] body.role-admin .admin-activity-page .activity-filters,
+html[data-theme="dark"] body.role-admin .admin-activity-page .activity-table-wrap {
+    border-color: var(--color-border);
+    background: var(--color-surface);
+}
+
+html[data-theme="dark"] body.role-admin .admin-activity-page .activity-summary-card strong,
+html[data-theme="dark"] body.role-admin .admin-activity-page .activity-panel__heading h2 {
+    color: var(--color-text);
+}
+
+html[data-theme="dark"] body.role-admin .admin-activity-page .activity-summary-card__label,
+html[data-theme="dark"] body.role-admin .admin-activity-page .activity-panel__heading p,
+html[data-theme="dark"] body.role-admin .admin-activity-page .activity-count,
+html[data-theme="dark"] body.role-admin .admin-activity-page .activity-user-meta {
+    color: var(--color-text-muted);
+}
+
+html[data-theme="dark"] body.role-admin .admin-activity-page .activity-filters select,
+html[data-theme="dark"] body.role-admin .admin-activity-page .activity-filters input,
+html[data-theme="dark"] body.role-admin .admin-activity-page .activity-reset {
+    border-color: var(--color-border);
+    background: #181D1A;
+    color: var(--color-text);
+}
+
+html[data-theme="dark"] body.role-admin .admin-activity-page .activity-filter-button {
+    border-color: #79B79C;
+    background: #2E5E4E;
+    color: #FFFFFF;
+}
+
+html[data-theme="dark"] body.role-admin .admin-activity-page .activity-table th {
+    background: #202622;
+    color: #A7B0AA;
+}
+
+html[data-theme="dark"] body.role-admin .admin-activity-page .activity-table th,
+html[data-theme="dark"] body.role-admin .admin-activity-page .activity-table td {
+    border-color: #2A312C;
+}
+
+html[data-theme="dark"] body.role-admin .admin-activity-page .activity-table tbody tr:hover {
+    background: #1C221E;
+}
+
+html[data-theme="dark"] body.role-admin .admin-activity-page .activity-time,
+html[data-theme="dark"] body.role-admin .admin-activity-page .activity-user-name,
+html[data-theme="dark"] body.role-admin .admin-activity-page .activity-ip,
+html[data-theme="dark"] body.role-admin .admin-activity-page .activity-device,
+html[data-theme="dark"] body.role-admin .admin-activity-page .activity-details {
+    color: #D7DCD8;
+}
+
+html[data-theme="dark"] body.role-admin .admin-activity-page .activity-badge {
+    background: #292F2B;
+    color: #C9D0CB;
+}
+
+html[data-theme="dark"] body.role-admin .admin-activity-page .activity-badge--success {
+    background: #203128;
+    color: #8ED0AE;
+}
+
+html[data-theme="dark"] body.role-admin .admin-activity-page .activity-badge--danger {
+    background: #34231D;
+    color: #E9A08C;
+}
+
+html[data-theme="dark"] body.role-admin .admin-activity-page .activity-badge--warning {
+    background: #352D1E;
+    color: #DAB86C;
+}
+
+html[data-theme="dark"] body.role-admin .admin-activity-page .activity-badge--info {
+    background: #202B33;
+    color: #91B7CF;
+}
+
+html[data-theme="dark"] body.role-admin .admin-activity-page .activity-badge--neutral {
+    background: #292F2B;
+    color: #B8C0BA;
+}
+
+/* ---------- Native controls ---------- */
+
+html[data-theme="dark"] input,
+html[data-theme="dark"] select,
+html[data-theme="dark"] textarea,
+html[data-theme="dark"] button {
+    color-scheme: dark;
+}
+
+html[data-theme="dark"] ::selection {
+    background: #3D725F;
+    color: #FFFFFF;
+}
+
+/* =========================================================
+   Brand logos — Light / Dark swap
+   ========================================================= */
+
+.student-brand .brand-logo-light,
+.student-mobile-brand .brand-logo-light,
+.admin-brand .brand-logo-light,
+.admin-mobile-brand .brand-logo-light {
+    display: block;
+}
+
+.student-brand .brand-logo-dark,
+.student-mobile-brand .brand-logo-dark,
+.admin-brand .brand-logo-dark,
+.admin-mobile-brand .brand-logo-dark {
+    display: none;
+}
+
+html[data-theme="dark"] .student-brand .brand-logo-light,
+html[data-theme="dark"] .student-mobile-brand .brand-logo-light,
+html[data-theme="dark"] .admin-brand .brand-logo-light,
+html[data-theme="dark"] .admin-mobile-brand .brand-logo-light {
+    display: none;
+}
+
+html[data-theme="dark"] .student-brand .brand-logo-dark,
+html[data-theme="dark"] .student-mobile-brand .brand-logo-dark,
+html[data-theme="dark"] .admin-brand .brand-logo-dark,
+html[data-theme="dark"] .admin-mobile-brand .brand-logo-dark {
+    display: block;
+}
+
+/* =========================================================
+   Decorative Masar marks — Dark Mode
+   ========================================================= */
+
+/*
+   Light mode keeps using masar-mark.svg from the page markup.
+   Dark mode swaps the exact same <img> to the transparent white mark.
+   No filters, no pseudo-elements, no cropping.
+*/
+html[data-theme="dark"] .path-position__mark,
+html[data-theme="dark"] .path-empty__mark,
+html[data-theme="dark"] .recs-hero__mark,
+html[data-theme="dark"] .recs-empty__mark,
+html[data-theme="dark"] .profile-hero-new__mark,
+html[data-theme="dark"] .resources-hero-new__mark,
+html[data-theme="dark"] .record-upload-panel__mark,
+html[data-theme="dark"] .admin-hero-new__mark {
+    content: url("/masar/assets/brand/masar-mark-white.svg");
+}
+
+/* Keep the same subtle watermark feel in dark mode. */
+html[data-theme="dark"] .path-position__mark {
+    opacity: 0.04;
+}
+
+html[data-theme="dark"] .path-empty__mark,
+html[data-theme="dark"] .recs-empty__mark {
+    opacity: 0.05;
+}
+
+html[data-theme="dark"] .recs-hero__mark,
+html[data-theme="dark"] .profile-hero-new__mark,
+html[data-theme="dark"] .resources-hero-new__mark {
+    opacity: 0.04;
+}
+
+html[data-theme="dark"] .record-upload-panel__mark {
+    opacity: 0.055;
+}
+
+html[data-theme="dark"] .admin-hero-new__mark {
+    opacity: 0.045;
+}
+
+/* =========================================================
+   Ask Masar icon
+   ========================================================= */
+
+.student-ask-masar__icon {
+    inline-size: 16px;
+    block-size: 16px;
+
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: none;
+
+    color: var(--color-primary);
+
+    font-family: var(--font-en);
+    font-size: 11px;
+    font-weight: 700;
+    line-height: 1;
+}
+
+.student-ask-masar img {
+    display: block;
+    inline-size: auto;
+    block-size: 15px;
+    flex: none;
+}
+
+html[data-theme="dark"] .student-ask-masar img {
+    content: url("/masar/assets/brand/masar-mark-white.svg");
+}
+
+html[data-theme="dark"] .student-ask-masar__icon {
+    color: #79B79C;
 }
