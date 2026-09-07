@@ -31,7 +31,14 @@ if (
             aria-label="Masar Admin"
         >
             <img
+                class="brand-logo-light"
                 src="/masar/assets/brand/masar-logo-horizontal.svg"
+                alt="Masar"
+            >
+
+            <img
+                class="brand-logo-dark"
+                src="/masar/assets/brand/masar-logo-horizontal-white.svg"
                 alt="Masar"
             >
 
@@ -63,13 +70,13 @@ if (
             </a>
 
             <a
-    href="/masar/admin/activity-log.php"
-    class="<?= $currentAdminPage === 'activity-log.php'
-        ? 'is-active'
-        : '' ?>"
->
-    Activity Log
-</a>
+                href="/masar/admin/activity-log.php"
+                class="<?= $currentAdminPage === 'activity-log.php'
+                    ? 'is-active'
+                    : '' ?>"
+            >
+                Activity Log
+            </a>
         </nav>
 
         <div class="admin-nav-actions">
@@ -85,7 +92,25 @@ if (
                 <?= htmlspecialchars(t('switch_language')) ?>
             </a>
 
-            <div class="admin-user-menu" data-user-menu>
+            <button
+                type="button"
+                class="theme-toggle"
+                data-theme-toggle
+                aria-label="Switch to dark mode"
+                aria-pressed="false"
+                title="Change theme"
+            >
+                <span
+                    class="theme-toggle__icon"
+                    data-theme-icon
+                    aria-hidden="true"
+                >☾</span>
+            </button>
+
+            <div
+                class="admin-user-menu"
+                data-user-menu
+            >
                 <button
                     type="button"
                     class="admin-user-chip"
@@ -105,8 +130,13 @@ if (
                     hidden
                 >
                     <div class="admin-user-dropdown__identity">
-                        <strong><?= htmlspecialchars($adminName) ?></strong>
-                        <span><?= htmlspecialchars(t('admin_role_label')) ?></span>
+                        <strong>
+                            <?= htmlspecialchars($adminName) ?>
+                        </strong>
+
+                        <span>
+                            <?= htmlspecialchars(t('admin_role_label')) ?>
+                        </span>
                     </div>
 
                     <a
@@ -131,11 +161,20 @@ if (
             aria-label="Masar Admin"
         >
             <img
+                class="brand-logo-light"
                 src="/masar/assets/brand/masar-logo-horizontal.svg"
                 alt="Masar"
             >
 
-            <span><?= htmlspecialchars(t('admin_portal_badge')) ?></span>
+            <img
+                class="brand-logo-dark"
+                src="/masar/assets/brand/masar-logo-horizontal-white.svg"
+                alt="Masar"
+            >
+
+            <span>
+                <?= htmlspecialchars(t('admin_portal_badge')) ?>
+            </span>
         </a>
 
         <div class="admin-mobile-actions">
@@ -151,7 +190,25 @@ if (
                 <?= htmlspecialchars(t('switch_language')) ?>
             </a>
 
-            <div class="admin-user-menu" data-user-menu>
+            <button
+                type="button"
+                class="theme-toggle"
+                data-theme-toggle
+                aria-label="Switch to dark mode"
+                aria-pressed="false"
+                title="Change theme"
+            >
+                <span
+                    class="theme-toggle__icon"
+                    data-theme-icon
+                    aria-hidden="true"
+                >☾</span>
+            </button>
+
+            <div
+                class="admin-user-menu"
+                data-user-menu
+            >
                 <button
                     type="button"
                     class="admin-user-chip"
@@ -170,8 +227,13 @@ if (
                     hidden
                 >
                     <div class="admin-user-dropdown__identity">
-                        <strong><?= htmlspecialchars($adminName) ?></strong>
-                        <span><?= htmlspecialchars(t('admin_role_label')) ?></span>
+                        <strong>
+                            <?= htmlspecialchars($adminName) ?>
+                        </strong>
+
+                        <span>
+                            <?= htmlspecialchars(t('admin_role_label')) ?>
+                        </span>
                     </div>
 
                     <a
@@ -213,11 +275,11 @@ if (
     </a>
 
     <a
-    href="/masar/admin/activity-log.php"
-    class="<?= $currentAdminPage === 'activity-log.php'
-        ? 'is-active'
-        : '' ?>"
->
-    Activity Log
-</a>
+        href="/masar/admin/activity-log.php"
+        class="<?= $currentAdminPage === 'activity-log.php'
+            ? 'is-active'
+            : '' ?>"
+    >
+        Activity Log
+    </a>
 </nav>

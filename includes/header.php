@@ -55,6 +55,11 @@ $bodyClass = $isAdmin
         content="width=device-width, initial-scale=1.0"
     >
 
+    <meta
+        name="color-scheme"
+        content="light dark"
+    >
+
     <title>
         <?= htmlspecialchars(
             $pageTitle,
@@ -62,6 +67,42 @@ $bodyClass = $isAdmin
             'UTF-8'
         ) ?> | Masar
     </title>
+
+    <!--
+        Apply the saved theme before the page is painted.
+        This prevents a white flash when Dark Mode is enabled.
+    -->
+    <script>
+        (function () {
+            const storageKey = 'masar-theme';
+
+            try {
+                const savedTheme =
+                    localStorage.getItem(storageKey);
+
+                let theme;
+
+                if (
+                    savedTheme === 'light'
+                    || savedTheme === 'dark'
+                ) {
+                    theme = savedTheme;
+                } else {
+                    theme = window.matchMedia(
+                        '(prefers-color-scheme: dark)'
+                    ).matches
+                        ? 'dark'
+                        : 'light';
+                }
+
+                document.documentElement.dataset.theme = theme;
+                document.documentElement.style.colorScheme = theme;
+            } catch (error) {
+                document.documentElement.dataset.theme = 'light';
+                document.documentElement.style.colorScheme = 'light';
+            }
+        })();
+    </script>
 
     <link
         rel="icon"
@@ -87,8 +128,13 @@ $bodyClass = $isAdmin
 
     <link
         rel="stylesheet"
-        href="/masar/assets/css/style.css?v=14"
+        href="/masar/assets/css/style.css?v=15"
     >
+
+    <script
+        src="/masar/assets/js/theme.js?v=1"
+        defer
+    ></script>
 
     <script
         src="/masar/assets/js/main.js?v=4"
@@ -101,8 +147,10 @@ $bodyClass = $isAdmin
     ></script>
 </head>
 
-<body class="<?= htmlspecialchars($bodyClass) ?>">
-
-
+<body class="<?= htmlspecialchars(
+    $bodyClass,
+    ENT_QUOTES,
+    'UTF-8'
+) ?>">
 
 <div class="app-layout">

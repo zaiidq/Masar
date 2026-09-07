@@ -31,7 +31,14 @@ if (
             aria-label="Masar"
         >
             <img
+                class="brand-logo-light"
                 src="/masar/assets/brand/masar-logo-horizontal.svg"
+                alt="Masar"
+            >
+
+            <img
+                class="brand-logo-dark"
+                src="/masar/assets/brand/masar-logo-horizontal-white.svg"
                 alt="Masar"
             >
         </a>
@@ -90,6 +97,21 @@ if (
                 <?= htmlspecialchars(t('switch_language')) ?>
             </a>
 
+            <button
+                type="button"
+                class="theme-toggle"
+                data-theme-toggle
+                aria-label="Switch to dark mode"
+                aria-pressed="false"
+                title="Change theme"
+            >
+                <span
+                    class="theme-toggle__icon"
+                    data-theme-icon
+                    aria-hidden="true"
+                >☾</span>
+            </button>
+
             <span
                 class="student-ask-masar is-disabled"
                 aria-disabled="true"
@@ -97,12 +119,16 @@ if (
                 <img
                     src="/masar/assets/brand/masar-mark.svg"
                     alt=""
+                    aria-hidden="true"
                 >
 
                 <?= htmlspecialchars(t('ask_masar')) ?>
             </span>
 
-            <div class="student-user-menu" data-user-menu>
+            <div
+                class="student-user-menu"
+                data-user-menu
+            >
                 <button
                     type="button"
                     class="student-user-chip <?= $currentStudentPage === 'profile.php'
@@ -155,7 +181,14 @@ if (
             aria-label="Masar"
         >
             <img
+                class="brand-logo-light"
                 src="/masar/assets/brand/masar-logo-horizontal.svg"
+                alt="Masar"
+            >
+
+            <img
+                class="brand-logo-dark"
+                src="/masar/assets/brand/masar-logo-horizontal-white.svg"
                 alt="Masar"
             >
         </a>
@@ -173,7 +206,25 @@ if (
                 <?= htmlspecialchars(t('switch_language')) ?>
             </a>
 
-            <div class="student-user-menu" data-user-menu>
+            <button
+                type="button"
+                class="theme-toggle"
+                data-theme-toggle
+                aria-label="Switch to dark mode"
+                aria-pressed="false"
+                title="Change theme"
+            >
+                <span
+                    class="theme-toggle__icon"
+                    data-theme-icon
+                    aria-hidden="true"
+                >☾</span>
+            </button>
+
+            <div
+                class="student-user-menu"
+                data-user-menu
+            >
                 <button
                     type="button"
                     class="student-user-chip <?= $currentStudentPage === 'profile.php'
