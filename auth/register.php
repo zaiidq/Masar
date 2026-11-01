@@ -18,6 +18,7 @@ if (isset($_SESSION['user_id'])) {
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../includes/language.php';
 require_once __DIR__ . '/../includes/activity-logger.php';
+require_once __DIR__ . '/../includes/csrf.php';
 
 $errors = [];
 $success = '';
@@ -41,11 +42,15 @@ $majors = $pdo->query(
 )->fetchAll();
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $fullName = trim($_POST['full_name'] ?? '');
-    $universityId = trim($_POST['university_id'] ?? '');
-    $email = trim($_POST['email'] ?? '');
-    $password = $_POST['password'] ?? '';
-    $confirmPassword = $_POST['confirm_password'] ?? '';
+    $fullName = trim((string) ($_POST['full_name'] ?? ''));
+    $universityId = trim((string) ($_POST['university_id'] ?? ''));
+    $email = trim((string) ($_POST['email'] ?? ''));
+    $password = (string) ($_POST['password'] ?? '');
+    $confirmPassword = (string) ($_POST['confirm_password'] ?? '');
+
+    if (!verifyCsrf()) {
+        $errors[] = t('auth_error_session_expired');
+    }
 
     $selectedFacultyId = filter_var(
         $_POST['faculty_id'] ?? null,
@@ -59,9 +64,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if ($fullName === '') {
         $errors[] = t('auth_error_name_required');
+    } elseif (mb_strlen($fullName) > 100) {
+        $errors[] = t('profile_error_name_long');
     }
 
-    if ($email === '' || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+    if (mb_strlen($universityId) > 30) {
+        $errors[] = t('profile_error_id_long');
+    }
+
+    if (
+        $email === ''
+        || mb_strlen($email) > 150
+        || !filter_var($email, FILTER_VALIDATE_EMAIL)
+    ) {
         $errors[] = t('auth_error_email_invalid');
     }
 
@@ -127,14 +142,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     password,
                     university_id,
                     faculty_id,
-                    major_id
+                    major_id,
+                    preferred_language
                 ) VALUES (
                     :full_name,
                     :email,
                     :password,
                     :university_id,
                     :faculty_id,
-                    :major_id
+                    :major_id,
+                    :preferred_language
                 )'
             );
 
@@ -147,6 +164,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         : null,
     'faculty_id' => $selectedFacultyId,
     'major_id' => $selectedMajorId,
+    'preferred_language' => currentLanguage(),
 ]);
 
 $newUserId = (int) $pdo->lastInsertId();
@@ -195,8 +213,8 @@ $languageSwitchUrl = '/masar/switch-language.php?lang='
         href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Tajawal:wght@400;500;700&display=swap"
         rel="stylesheet"
     >
-    <link rel="stylesheet" href="/masar/assets/css/style.css?v=14">
-    <script src="/masar/assets/js/major-selector.js?v=2" defer></script>
+    <?php require __DIR__ . '/../includes/theme-head.php'; ?>
+    <script src="/masar/assets/js/major-selector.js?v=3" defer></script>
 </head>
 <body class="auth-body-new">
 <main class="auth-shell-new auth-shell-new--register">
@@ -235,9 +253,13 @@ $languageSwitchUrl = '/masar/switch-language.php?lang='
                 <img src="/masar/assets/brand/masar-logo-horizontal.svg" alt="Masar">
             </a>
 
-            <a class="auth-language-new" href="<?= htmlspecialchars($languageSwitchUrl, ENT_QUOTES, 'UTF-8') ?>">
-                <?= htmlspecialchars(t('switch_language')) ?>
-            </a>
+            <div class="auth-toolbar-new__actions">
+                <?php require __DIR__ . '/../includes/theme-toggle.php'; ?>
+
+                <a class="auth-language-new" href="<?= htmlspecialchars($languageSwitchUrl, ENT_QUOTES, 'UTF-8') ?>">
+                    <?= htmlspecialchars(t('switch_language')) ?>
+                </a>
+            </div>
         </div>
 
         <div class="auth-form-wrap-new auth-form-wrap-new--register">
@@ -265,6 +287,7 @@ $languageSwitchUrl = '/masar/switch-language.php?lang='
             <?php endif; ?>
 
             <form class="auth-form-new" method="POST" action="">
+                <?= csrfField() ?>
                 <div class="auth-register-grid-new">
                     <div class="auth-field-new">
                         <label for="full_name"><?= htmlspecialchars(t('auth_full_name')) ?></label>
@@ -310,6 +333,8 @@ $languageSwitchUrl = '/masar/switch-language.php?lang='
                             id="major_id"
                             name="major_id"
                             data-selected-major="<?= $selectedMajorId ?>"
+                            data-placeholder-major="<?= htmlspecialchars(t('auth_select_major'), ENT_QUOTES) ?>"
+                            data-placeholder-faculty-first="<?= htmlspecialchars(t('auth_select_faculty_first'), ENT_QUOTES) ?>"
                             disabled
                             required
                         >

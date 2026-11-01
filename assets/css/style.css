@@ -6079,3 +6079,138 @@ html[data-theme="dark"] .chat-delete-button:hover {
         max-block-size: none;
     }
 }
+
+/* Auth toolbar: theme toggle + language switch */
+.auth-toolbar-new__actions {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-inline-start: auto;
+}
+
+.auth-toolbar-new__actions .auth-language-new {
+    margin-inline-start: 0;
+}
+
+/* Logout is a POST form inside the account menus. */
+.user-menu-logout-form {
+    margin: 0;
+}
+
+.user-menu-logout-form button {
+    position: relative;
+    z-index: 1;
+
+    display: flex;
+    align-items: center;
+    inline-size: 100%;
+    min-block-size: 40px;
+    padding-inline: 14px;
+
+    border: 0;
+    border-block-start: 1px solid var(--color-border);
+    background: transparent;
+    color: var(--color-text);
+
+    font: inherit;
+    font-size: 13px;
+    font-weight: 500;
+    text-align: start;
+    cursor: pointer;
+
+    transition: background 0.15s ease, color 0.15s ease;
+}
+
+html[lang="ar"] .user-menu-logout-form button {
+    font-size: 14px;
+}
+
+.user-menu-logout-form button:hover,
+.user-menu-logout-form button:focus-visible {
+    background: var(--color-surface-muted);
+    color: #9a4b3f;
+    outline: none;
+}
+
+html[data-theme="dark"] .user-menu-logout-form button {
+    color: var(--color-text);
+}
+
+html[data-theme="dark"] .user-menu-logout-form button:hover,
+html[data-theme="dark"] .user-menu-logout-form button:focus-visible {
+    color: #e3a083;
+}
+
+/* Profile: delete account */
+.profile-danger-zone {
+    margin-block-start: 40px;
+    padding: 24px;
+    border: 1px solid #e3c4b9;
+    border-radius: 4px;
+    background: var(--color-surface);
+}
+
+.profile-danger-zone__copy h2 {
+    margin: 0 0 6px;
+    color: #9a4b3f;
+    font-size: 18px;
+    font-weight: 600;
+}
+
+.profile-danger-zone__copy p {
+    max-inline-size: 640px;
+    margin: 0 0 18px;
+    color: var(--color-text-muted);
+    font-size: 14px;
+    line-height: 1.6;
+}
+
+.profile-danger-zone__form label {
+    display: block;
+    margin-block-end: 6px;
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.profile-danger-zone__row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.profile-danger-zone__row input {
+    flex: 1 1 220px;
+    max-inline-size: 320px;
+    min-block-size: 42px;
+    padding: 9px 12px;
+    border: 1px solid var(--color-border);
+    border-radius: 3px;
+    background: var(--color-background);
+    color: var(--color-text);
+    font: inherit;
+}
+
+.profile-delete-button {
+    min-block-size: 42px;
+    padding-inline: 18px;
+    border: 1px solid #9a4b3f;
+    border-radius: 3px;
+    background: #9a4b3f;
+    color: #fff;
+    font: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.profile-delete-button:hover {
+    background: #7f3b31;
+}
+
+html[data-theme="dark"] .profile-danger-zone {
+    border-color: #5a3a31;
+}
+
+html[data-theme="dark"] .profile-danger-zone__copy h2 {
+    color: #e3a083;
+}

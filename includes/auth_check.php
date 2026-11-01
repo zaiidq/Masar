@@ -7,7 +7,37 @@ if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
 
+require_once __DIR__ . '/../config/database.php';
+require_once __DIR__ . '/csrf.php';
+
 if (!isset($_SESSION['user_id'])) {
-    header('Location: ../auth/login.php');
+    header('Location: /masar/auth/login.php');
     exit;
 }
+
+/*
+ * Re-read the account on every request so a deleted account is logged
+ * out immediately and a role change made by an administrator applies
+ * without the user signing in again.
+ */
+$authStatement = $pdo->prepare(
+    'SELECT role, full_name, preferred_language FROM users WHERE id = :id'
+);
+$authStatement->execute(['id' => (int) $_SESSION['user_id']]);
+$authUser = $authStatement->fetch();
+
+if (!$authUser) {
+    $_SESSION = [];
+    session_destroy();
+    header('Location: /masar/auth/login.php');
+    exit;
+}
+
+$_SESSION['role'] = $authUser['role'];
+$_SESSION['full_name'] = $authUser['full_name'];
+
+if (!isset($_SESSION['language'])) {
+    $_SESSION['language'] = $authUser['preferred_language'];
+}
+
+unset($authStatement, $authUser);

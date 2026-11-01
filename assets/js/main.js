@@ -44,12 +44,12 @@ document.addEventListener('DOMContentLoaded', () => {
             toggle.setAttribute('aria-expanded', String(willOpen));
 
             if (willOpen) {
-                panel.querySelector('a')?.focus();
+                panel.querySelector('a, button')?.focus();
             }
         });
 
         panel.addEventListener('keydown', (event) => {
-            const items = Array.from(panel.querySelectorAll('a'));
+            const items = Array.from(panel.querySelectorAll('a, button'));
             const index = items.indexOf(document.activeElement);
 
             if (event.key === 'ArrowDown') {

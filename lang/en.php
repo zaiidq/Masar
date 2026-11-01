@@ -377,4 +377,23 @@ return [
     'path_ask_body' => 'Questions about a course or your plan? Ask Masar explains your record and recommendations.',
     'path_ask_link' => 'Open Ask Masar',
     'recs_explain' => 'Explain this recommendation',
+
+    /* Accounts and security */
+    'auth_select_major' => 'Select major',
+    'auth_show' => 'Show',
+    'auth_hide' => 'Hide',
+    'auth_show_password' => 'Show password',
+    'auth_hide_password' => 'Hide password',
+    'auth_error_session_expired' => 'Your session expired. Please submit the form again.',
+    'auth_error_too_many_attempts' => 'Too many failed sign-in attempts. Please wait 15 minutes and try again.',
+    'auth_account_deleted' => 'Your account and all of its data have been deleted.',
+    'theme_to_dark' => 'Switch to dark mode',
+    'theme_to_light' => 'Switch to light mode',
+    'theme_change' => 'Change theme',
+    'profile_delete_title' => 'Delete account',
+    'profile_delete_body' => 'This permanently deletes your account, every uploaded academic record, your analyses and your Ask Masar conversations. This cannot be undone.',
+    'profile_delete_password' => 'Enter your password to confirm',
+    'profile_delete_action' => 'Delete my account',
+    'profile_delete_confirm' => 'Delete your account and all of its data permanently?',
+    'profile_delete_wrong_password' => 'The password is incorrect. Your account was not deleted.',
 ];

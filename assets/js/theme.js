@@ -48,8 +48,8 @@
                 button.setAttribute(
                     'aria-label',
                     isDark
-                        ? 'Switch to light mode'
-                        : 'Switch to dark mode'
+                        ? (button.dataset.labelToLight || 'Switch to light mode')
+                        : (button.dataset.labelToDark || 'Switch to dark mode')
                 );
 
                 const icon =

@@ -97,20 +97,7 @@ if (
                 <?= htmlspecialchars(t('switch_language')) ?>
             </a>
 
-            <button
-                type="button"
-                class="theme-toggle"
-                data-theme-toggle
-                aria-label="Switch to dark mode"
-                aria-pressed="false"
-                title="Change theme"
-            >
-                <span
-                    class="theme-toggle__icon"
-                    data-theme-icon
-                    aria-hidden="true"
-                >☾</span>
-            </button>
+            <?php require __DIR__ . '/theme-toggle.php'; ?>
 
             <a
                 href="/masar/student/ask-masar.php"
@@ -161,13 +148,12 @@ if (
                         <?= htmlspecialchars(t('profile')) ?>
                     </a>
 
-                    <a
-                        href="/masar/auth/logout.php"
-                        role="menuitem"
-                        class="student-user-dropdown__logout"
-                    >
-                        <?= htmlspecialchars(t('logout')) ?>
-                    </a>
+                    <form method="POST" action="/masar/auth/logout.php" class="user-menu-logout-form">
+                        <?= csrfField() ?>
+                        <button type="submit" role="menuitem" class="student-user-dropdown__logout">
+                            <?= htmlspecialchars(t('logout')) ?>
+                        </button>
+                    </form>
                 </div>
             </div>
 
@@ -208,20 +194,7 @@ if (
                 <?= htmlspecialchars(t('switch_language')) ?>
             </a>
 
-            <button
-                type="button"
-                class="theme-toggle"
-                data-theme-toggle
-                aria-label="Switch to dark mode"
-                aria-pressed="false"
-                title="Change theme"
-            >
-                <span
-                    class="theme-toggle__icon"
-                    data-theme-icon
-                    aria-hidden="true"
-                >☾</span>
-            </button>
+            <?php require __DIR__ . '/theme-toggle.php'; ?>
 
             <div
                 class="student-user-menu"
@@ -256,13 +229,12 @@ if (
                         <?= htmlspecialchars(t('profile')) ?>
                     </a>
 
-                    <a
-                        href="/masar/auth/logout.php"
-                        role="menuitem"
-                        class="student-user-dropdown__logout"
-                    >
-                        <?= htmlspecialchars(t('logout')) ?>
-                    </a>
+                    <form method="POST" action="/masar/auth/logout.php" class="user-menu-logout-form">
+                        <?= csrfField() ?>
+                        <button type="submit" role="menuitem" class="student-user-dropdown__logout">
+                            <?= htmlspecialchars(t('logout')) ?>
+                        </button>
+                    </form>
                 </div>
             </div>
 

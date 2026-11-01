@@ -80,9 +80,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
 */
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $csrfToken = $_POST['csrf_token'] ?? '';
-
-    if (!hash_equals($_SESSION['csrf_token'], $csrfToken)) {
+    if (!verifyCsrf()) {
         $errors[] = t('admin_links_error_invalid_request');
     }
 

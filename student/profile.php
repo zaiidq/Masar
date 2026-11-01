@@ -5,17 +5,17 @@ declare(strict_types=1);
 require_once __DIR__ . '/../includes/auth_check.php';
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../includes/language.php';
+require_once __DIR__ . '/../includes/activity-logger.php';
 
-if ($_SESSION['role'] !== 'student') {
+if (($_SESSION['role'] ?? '') !== 'student') {
     header('Location: ../admin/dashboard.php');
     exit;
 }
 
-if (!isset($_SESSION['csrf_token'])) {
-    $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
-}
+csrfToken();
 
 $errors = [];
+$deleteErrors = [];
 $success = '';
 
 $faculties = $pdo->query(
@@ -52,15 +52,75 @@ if (!$user) {
     exit;
 }
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $csrfToken = $_POST['csrf_token'] ?? '';
+$action = (string) ($_POST['action'] ?? 'update_profile');
 
-    if (!hash_equals($_SESSION['csrf_token'], $csrfToken)) {
+/*
+ * FR3 / UC-02: delete the account after password confirmation.
+ * Removes the user, every uploaded PDF, analyses and conversations.
+ */
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'delete_account') {
+    $confirmPassword = (string) ($_POST['confirm_password'] ?? '');
+
+    $passwordStatement = $pdo->prepare('SELECT password FROM users WHERE id = :id');
+    $passwordStatement->execute(['id' => $_SESSION['user_id']]);
+    $passwordHash = (string) $passwordStatement->fetchColumn();
+
+    if (!verifyCsrf()) {
+        $deleteErrors[] = t('profile_error_invalid_request');
+    } elseif (!password_verify($confirmPassword, $passwordHash)) {
+        $deleteErrors[] = t('profile_delete_wrong_password');
+    } else {
+        $userId = (int) $_SESSION['user_id'];
+
+        $fileStatement = $pdo->prepare(
+            'SELECT file_path FROM academic_records WHERE user_id = :user_id'
+        );
+        $fileStatement->execute(['user_id' => $userId]);
+        $filePaths = $fileStatement->fetchAll(PDO::FETCH_COLUMN);
+
+        /* Records, courses, recommendations and chats cascade. */
+        $pdo->prepare('DELETE FROM users WHERE id = :id')->execute(['id' => $userId]);
+
+        $storageRoot = realpath(dirname(__DIR__) . '/storage/academic-records');
+
+        foreach ($filePaths as $relativePath) {
+            $absolutePath = realpath(dirname(__DIR__) . '/' . $relativePath);
+
+            if (
+                $absolutePath !== false
+                && $storageRoot !== false
+                && str_starts_with($absolutePath, $storageRoot . DIRECTORY_SEPARATOR)
+                && is_file($absolutePath)
+            ) {
+                @unlink($absolutePath);
+            }
+        }
+
+        logActivity(
+            $pdo,
+            'ACCOUNT_DELETED',
+            $userId,
+            sprintf('Deleted by the student; %d record file(s) removed', count($filePaths))
+        );
+
+        $language = currentLanguage();
+
+        $_SESSION = [];
+        session_regenerate_id(true);
+        $_SESSION['language'] = $language;
+
+        header('Location: /masar/auth/login.php?deleted=1');
+        exit;
+    }
+}
+
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'update_profile') {
+    if (!verifyCsrf()) {
         $errors[] = t('profile_error_invalid_request');
     }
 
-    $fullName = trim($_POST['full_name'] ?? '');
-    $universityId = trim($_POST['university_id'] ?? '');
+    $fullName = trim((string) ($_POST['full_name'] ?? ''));
+    $universityId = trim((string) ($_POST['university_id'] ?? ''));
 
     $facultyId = filter_var(
         $_POST['faculty_id'] ?? null,
@@ -74,11 +134,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     if ($fullName === '') {
         $errors[] = t('profile_error_name_required');
-    } elseif (strlen($fullName) > 100) {
+    } elseif (mb_strlen($fullName) > 100) {
         $errors[] = t('profile_error_name_long');
     }
 
-    if (strlen($universityId) > 30) {
+    if (mb_strlen($universityId) > 30) {
         $errors[] = t('profile_error_id_long');
     }
 
@@ -186,11 +246,8 @@ require_once __DIR__ . '/../includes/sidebar.php';
             </div>
 
             <form method="POST" action="" class="profile-form-new">
-                <input
-                    type="hidden"
-                    name="csrf_token"
-                    value="<?= htmlspecialchars($_SESSION['csrf_token']) ?>"
-                >
+                <?= csrfField() ?>
+                <input type="hidden" name="action" value="update_profile">
 
                 <div class="profile-form-grid-new">
                     <div class="profile-field-new profile-field-new--wide">
@@ -282,6 +339,49 @@ require_once __DIR__ . '/../includes/sidebar.php';
             <p><?= htmlspecialchars(t('profile_account_note')) ?></p>
         </aside>
     </div>
+
+    <section class="profile-danger-zone" id="delete-account">
+        <div class="profile-danger-zone__copy">
+            <h2><?= htmlspecialchars(t('profile_delete_title')) ?></h2>
+            <p><?= htmlspecialchars(t('profile_delete_body')) ?></p>
+        </div>
+
+        <?php if ($deleteErrors): ?>
+            <div class="record-alert record-alert--error" role="alert">
+                <ul>
+                    <?php foreach ($deleteErrors as $error): ?>
+                        <li><?= htmlspecialchars($error) ?></li>
+                    <?php endforeach; ?>
+                </ul>
+            </div>
+        <?php endif; ?>
+
+        <form
+            method="POST"
+            action="#delete-account"
+            class="profile-danger-zone__form"
+            onsubmit="return confirm(<?= htmlspecialchars(json_encode(t('profile_delete_confirm'), JSON_UNESCAPED_UNICODE), ENT_QUOTES, 'UTF-8') ?>);"
+        >
+            <?= csrfField() ?>
+            <input type="hidden" name="action" value="delete_account">
+
+            <label for="confirm_password"><?= htmlspecialchars(t('profile_delete_password')) ?></label>
+
+            <div class="profile-danger-zone__row">
+                <input
+                    type="password"
+                    id="confirm_password"
+                    name="confirm_password"
+                    autocomplete="current-password"
+                    required
+                >
+
+                <button type="submit" class="profile-delete-button">
+                    <?= htmlspecialchars(t('profile_delete_action')) ?>
+                </button>
+            </div>
+        </form>
+    </section>
 </main>
 
 <script type="application/json" id="majorsData">

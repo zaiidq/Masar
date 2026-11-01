@@ -377,4 +377,23 @@ return [
     'path_ask_body' => 'لديك سؤال عن مادة أو عن خطتك؟ «اسأل مسار» يشرح سجلك وتوصياتك.',
     'path_ask_link' => 'افتح «اسأل مسار»',
     'recs_explain' => 'اشرح هذه التوصية',
+
+    /* Accounts and security */
+    'auth_select_major' => 'اختر التخصص',
+    'auth_show' => 'إظهار',
+    'auth_hide' => 'إخفاء',
+    'auth_show_password' => 'إظهار كلمة المرور',
+    'auth_hide_password' => 'إخفاء كلمة المرور',
+    'auth_error_session_expired' => 'انتهت صلاحية الجلسة. يرجى إرسال النموذج مرة أخرى.',
+    'auth_error_too_many_attempts' => 'محاولات تسجيل دخول فاشلة كثيرة. يرجى الانتظار 15 دقيقة ثم المحاولة مرة أخرى.',
+    'auth_account_deleted' => 'تم حذف حسابك وجميع بياناته.',
+    'theme_to_dark' => 'التبديل إلى الوضع الداكن',
+    'theme_to_light' => 'التبديل إلى الوضع الفاتح',
+    'theme_change' => 'تغيير المظهر',
+    'profile_delete_title' => 'حذف الحساب',
+    'profile_delete_body' => 'سيؤدي ذلك إلى حذف حسابك نهائياً مع جميع السجلات الأكاديمية المرفوعة والتحليلات ومحادثات «اسأل مسار». لا يمكن التراجع عن هذه العملية.',
+    'profile_delete_password' => 'أدخل كلمة المرور للتأكيد',
+    'profile_delete_action' => 'احذف حسابي',
+    'profile_delete_confirm' => 'هل تريد حذف حسابك وجميع بياناته نهائياً؟',
+    'profile_delete_wrong_password' => 'كلمة المرور غير صحيحة. لم يتم حذف حسابك.',
 ];
