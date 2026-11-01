@@ -112,9 +112,11 @@ if (
                 >☾</span>
             </button>
 
-            <span
-                class="student-ask-masar is-disabled"
-                aria-disabled="true"
+            <a
+                href="/masar/student/ask-masar.php"
+                class="student-ask-masar <?= $currentStudentPage === 'ask-masar.php'
+                    ? 'is-active'
+                    : '' ?>"
             >
                 <img
                     src="/masar/assets/brand/masar-mark.svg"
@@ -123,7 +125,7 @@ if (
                 >
 
                 <?= htmlspecialchars(t('ask_masar')) ?>
-            </span>
+            </a>
 
             <div
                 class="student-user-menu"
@@ -301,10 +303,21 @@ if (
         <?= htmlspecialchars(t('next_short')) ?>
     </a>
 
-    <span
-        class="is-disabled"
-        aria-disabled="true"
+    <a
+        href="/masar/student/ask-masar.php"
+        class="<?= $currentStudentPage === 'ask-masar.php'
+            ? 'is-active'
+            : '' ?>"
     >
         <?= htmlspecialchars(t('ask_short')) ?>
-    </span>
+    </a>
+
+    <a
+        href="/masar/student/university-links.php"
+        class="<?= $currentStudentPage === 'university-links.php'
+            ? 'is-active'
+            : '' ?>"
+    >
+        <?= htmlspecialchars(t('links_short')) ?>
+    </a>
 </nav>

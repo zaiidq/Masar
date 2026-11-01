@@ -528,6 +528,23 @@ require_once __DIR__ . '/../includes/sidebar.php';
                 </a>
             </div>
 
+            <div class="path-note path-ask-card">
+                <div class="path-note__label path-note__label--brand">
+                    <?= e(t('ask_masar')) ?>
+                </div>
+
+                <p class="path-note__body">
+                    <?= e(t('path_ask_body')) ?>
+                </p>
+
+                <a
+                    class="path-note__link path-note__link--brand"
+                    href="/masar/student/ask-masar.php"
+                >
+                    <?= e(t('path_ask_link')) ?>
+                </a>
+            </div>
+
             <p class="path-disclaimer">
                 <?= e(t('path_disclaimer')) ?>
             </p>

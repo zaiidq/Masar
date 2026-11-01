@@ -293,6 +293,13 @@ require_once __DIR__ . '/../includes/sidebar.php';
                                                 <?= escapeValue(t('recs_data_warning')) ?>
                                             </small>
                                         <?php endif; ?>
+
+                                        <a
+                                            class="recs-explain-link"
+                                            href="/masar/student/ask-masar.php?explain=<?= urlencode((string) $item['course_code']) ?>"
+                                        >
+                                            <?= escapeValue(t('recs_explain')) ?>
+                                        </a>
                                     </td>
                                 </tr>
                             <?php endforeach; ?>
@@ -349,6 +356,13 @@ require_once __DIR__ . '/../includes/sidebar.php';
                                     <?= escapeValue(t('recs_data_warning')) ?>
                                 </small>
                             <?php endif; ?>
+
+                            <a
+                                class="recs-explain-link"
+                                href="/masar/student/ask-masar.php?explain=<?= urlencode((string) $item['course_code']) ?>"
+                            >
+                                <?= escapeValue(t('recs_explain')) ?>
+                            </a>
                         </article>
                     <?php endforeach; ?>
                 </div>
