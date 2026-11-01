@@ -11,10 +11,23 @@
 --  Then run:
 --    sudo mysql masar_db < database/migrations/2026_11_01_masar_v2_upgrade.sql
 --
+--  Then refresh the reference data (adds Arabic faculty/major names):
+--    sudo mysql masar_db < database/seed.sql
+--
 --  Safe to run more than once.
 -- ============================================================
 
 SET NAMES utf8mb4;
+
+-- ------------------------------------------------------------
+--  faculties / majors: Arabic names
+-- ------------------------------------------------------------
+
+ALTER TABLE `faculties`
+    ADD COLUMN IF NOT EXISTS `name_ar` VARCHAR(150) NULL DEFAULT NULL AFTER `name`;
+
+ALTER TABLE `majors`
+    ADD COLUMN IF NOT EXISTS `name_ar` VARCHAR(150) NULL DEFAULT NULL AFTER `name`;
 
 -- ------------------------------------------------------------
 --  users: persisted language preference (FR4)
@@ -52,6 +65,8 @@ ALTER TABLE `record_courses`
         NOT NULL DEFAULT 0 AFTER `completion_state`;
 
 ALTER TABLE `record_recommendations`
+    ADD COLUMN IF NOT EXISTS `reason_ar` VARCHAR(500)
+        NULL DEFAULT NULL AFTER `reason`,
     ADD COLUMN IF NOT EXISTS `has_data_warning` TINYINT(1)
         NOT NULL DEFAULT 0 AFTER `rejection_reason`;
 

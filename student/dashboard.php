@@ -183,7 +183,7 @@ $eyebrowParts = array_filter([
 $analysedOn = null;
 
 if ($record && !empty($record['analyzed_at'])) {
-    $analysedOn = date('d M Y', strtotime((string) $record['analyzed_at']));
+    $analysedOn = formatLocalizedDate((int) strtotime((string) $record['analyzed_at']));
 }
 
 $pageTitle = t('my_path');
@@ -257,7 +257,7 @@ require_once __DIR__ . '/../includes/sidebar.php';
                 <?php if ($eyebrowParts): ?>
                     <span class="path-eyebrow">
                         <span class="path-eyebrow__tick"></span>
-                        <?= e(implode(' · ', $eyebrowParts)) ?>
+                        <bdi><?= e(implode(' · ', $eyebrowParts)) ?></bdi>
                     </span>
                 <?php endif; ?>
 
@@ -512,10 +512,10 @@ require_once __DIR__ . '/../includes/sidebar.php';
 
                         <?php if (!empty($record['academic_semester'])): ?>
                             ·
-                            <?= e(sprintf(
-                                t('path_last_semester'),
-                                $record['academic_semester']
-                            )) ?>
+                            <?= sprintf(
+                                e(t('path_last_semester')),
+                                '<bdi lang="en">' . e($record['academic_semester']) . '</bdi>'
+                            ) ?>
                         <?php endif; ?>
                     </span>
                 </p>

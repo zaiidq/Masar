@@ -23,6 +23,7 @@ SET FOREIGN_KEY_CHECKS = 0;
 CREATE TABLE IF NOT EXISTS `faculties` (
     `id`         INT UNSIGNED NOT NULL AUTO_INCREMENT,
     `name`       VARCHAR(150) NOT NULL,
+    `name_ar`    VARCHAR(150) NULL DEFAULT NULL,
     `created_at` TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     PRIMARY KEY (`id`),
@@ -33,6 +34,7 @@ CREATE TABLE IF NOT EXISTS `majors` (
     `id`         INT UNSIGNED NOT NULL AUTO_INCREMENT,
     `faculty_id` INT UNSIGNED NOT NULL,
     `name`       VARCHAR(150) NOT NULL,
+    `name_ar`    VARCHAR(150) NULL DEFAULT NULL,
     `created_at` TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     PRIMARY KEY (`id`),
@@ -192,6 +194,7 @@ CREATE TABLE IF NOT EXISTS `record_recommendations` (
     `credit_hours`     TINYINT UNSIGNED NOT NULL DEFAULT 0,
     `priority`         TINYINT UNSIGNED NOT NULL DEFAULT 0,
     `reason`           VARCHAR(500)     NULL DEFAULT NULL,
+    `reason_ar`        VARCHAR(500)     NULL DEFAULT NULL,
     `is_accepted`      TINYINT(1)       NOT NULL DEFAULT 1,
     `rejection_reason` VARCHAR(255)     NULL DEFAULT NULL,
     `has_data_warning` TINYINT(1)       NOT NULL DEFAULT 0,

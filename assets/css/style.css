@@ -6959,3 +6959,33 @@ html[data-theme="dark"] .admin-filter-bar__submit {
         padding-inline: 2px;
     }
 }
+
+/* Auth mobile logo: light / dark swap */
+.auth-mobile-logo-new .brand-logo-dark {
+    display: none;
+}
+
+html[data-theme="dark"] .auth-mobile-logo-new .brand-logo-light {
+    display: none;
+}
+
+html[data-theme="dark"] .auth-mobile-logo-new .brand-logo-dark {
+    display: block;
+}
+
+html[data-theme="dark"] .auth-mobile-logo-new {
+    background: transparent;
+}
+
+.recs-reason > span {
+    display: block;
+}
+
+.recs-reason .recs-explain-link {
+    display: table;
+}
+
+html[data-theme="dark"] .chat-welcome__mark,
+html[data-theme="dark"] .admin-links-empty-new img {
+    content: url("/masar/assets/brand/masar-mark-white.svg");
+}

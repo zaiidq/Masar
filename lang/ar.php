@@ -518,4 +518,11 @@ return [
     'event_admin_link_toggled' => 'إظهار/إخفاء رابط',
     'event_admin_link_deleted' => 'حذف رابط',
     'event_admin_alert_resolved' => 'معالجة تنبيه',
+
+    /* Formatting and accessibility */
+    'unit_kb' => '%s ك.ب',
+    'unit_mb' => '%s م.ب',
+    'nav_student_label' => 'تنقل الطالب',
+    'nav_student_mobile_label' => 'تنقل الطالب (الجوال)',
+    'admin_brand_label' => 'إدارة مسار',
 ];

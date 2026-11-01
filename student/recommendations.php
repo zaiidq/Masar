@@ -81,6 +81,19 @@ $totalRecommendedHours = array_sum(
 );
 
 $recommendationCount = count($recommendations);
+
+/*
+ * The reason in the interface language. Analyses made before Arabic
+ * reasons existed fall back to the English text.
+ */
+function localizedReason(array $item): array
+{
+    if (currentLanguage() === 'ar' && !empty($item['reason_ar'])) {
+        return [(string) $item['reason_ar'], 'ar', 'rtl'];
+    }
+
+    return [(string) ($item['reason'] ?? ''), 'en', 'ltr'];
+}
 $gpa = $record && $record['gpa'] !== null
     ? number_format((float) $record['gpa'], 2)
     : null;
@@ -286,7 +299,8 @@ require_once __DIR__ . '/../includes/sidebar.php';
                                         <?= (int) $item['credit_hours'] ?>
                                     </td>
                                     <td class="recs-reason">
-                                        <span lang="en" dir="ltr"><?= escapeValue($item['reason'] ?? '') ?></span>
+                                        <?php [$reasonText, $reasonLang, $reasonDir] = localizedReason($item); ?>
+                                        <span lang="<?= $reasonLang ?>" dir="<?= $reasonDir ?>"><?= escapeValue($reasonText) ?></span>
 
                                         <?php if (!empty($item['has_data_warning'])): ?>
                                             <small class="recs-warning">
@@ -336,8 +350,7 @@ require_once __DIR__ . '/../includes/sidebar.php';
                                 </span>
 
                                 <span class="recs-hours">
-                                    <?= (int) $item['credit_hours'] ?>
-                                    <?= escapeValue(t('recs_hours')) ?>
+                                    <?= escapeValue(sprintf(t('path_hours_short'), (int) $item['credit_hours'])) ?>
                                 </span>
                             </div>
 
@@ -345,9 +358,10 @@ require_once __DIR__ . '/../includes/sidebar.php';
                                 <?= escapeValue($item['course_name']) ?>
                             </h2>
 
-                            <?php if (!empty($item['reason'])): ?>
-                                <p lang="en" dir="ltr">
-                                    <?= escapeValue($item['reason']) ?>
+                            <?php [$reasonText, $reasonLang, $reasonDir] = localizedReason($item); ?>
+                            <?php if ($reasonText !== ''): ?>
+                                <p lang="<?= $reasonLang ?>" dir="<?= $reasonDir ?>">
+                                    <?= escapeValue($reasonText) ?>
                                 </p>
                             <?php endif; ?>
 

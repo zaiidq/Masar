@@ -28,10 +28,10 @@ function escape(?string $value): string
 function formatFileSize(int $bytes): string
 {
     if ($bytes >= 1024 * 1024) {
-        return number_format($bytes / (1024 * 1024), 2) . ' MB';
+        return sprintf(t('unit_mb'), number_format($bytes / (1024 * 1024), 2));
     }
 
-    return number_format($bytes / 1024, 2) . ' KB';
+    return sprintf(t('unit_kb'), number_format($bytes / 1024, 2));
 }
 
 function formatRecordDate(?string $value): string
@@ -46,11 +46,7 @@ function formatRecordDate(?string $value): string
         return t('not_available');
     }
 
-    if (currentLanguage() === 'ar') {
-        return date('Y/m/d H:i', $timestamp);
-    }
-
-    return date('d M Y, h:i A', $timestamp);
+    return formatLocalizedDate($timestamp, true);
 }
 
 function getStatusLabel(string $status): string
@@ -551,13 +547,23 @@ require_once __DIR__ . '/../includes/sidebar.php';
                         <div>
                             <dt><?= escape(t('record_last_academic_semester')) ?></dt>
                             <dd>
-                                <?= escape($currentRecord['academic_semester'] ?? t('not_available')) ?>
+                                <?php if (!empty($currentRecord['academic_semester'])): ?>
+                                    <bdi lang="en"><?= escape($currentRecord['academic_semester']) ?></bdi>
+                                <?php else: ?>
+                                    <?= escape(t('not_available')) ?>
+                                <?php endif; ?>
                                 <small><?= escape(t('record_as_read_pdf')) ?></small>
                             </dd>
                         </div>
                         <div>
                             <dt><?= escape(t('record_level')) ?></dt>
-                            <dd><?= escape($currentRecord['student_level'] ?? t('not_available')) ?></dd>
+                            <dd>
+                                <?php if (!empty($currentRecord['student_level'])): ?>
+                                    <bdi lang="en"><?= escape($currentRecord['student_level']) ?></bdi>
+                                <?php else: ?>
+                                    <?= escape(t('not_available')) ?>
+                                <?php endif; ?>
+                            </dd>
                         </div>
                         <div>
                             <dt><?= escape(t('record_gpa')) ?></dt>

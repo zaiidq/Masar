@@ -19,13 +19,13 @@ $deleteErrors = [];
 $success = '';
 
 $faculties = $pdo->query(
-    'SELECT id, name
+    'SELECT id, ' . localizedNameSql() . ' AS name
      FROM faculties
      ORDER BY name'
 )->fetchAll();
 
 $majors = $pdo->query(
-    'SELECT id, faculty_id, name
+    'SELECT id, faculty_id, ' . localizedNameSql() . ' AS name
      FROM majors
      ORDER BY name'
 )->fetchAll();

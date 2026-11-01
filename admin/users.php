@@ -132,7 +132,7 @@ $offset = ($page - 1) * $perPage;
 $listStatement = $pdo->prepare(
     "SELECT
         u.id, u.full_name, u.email, u.university_id, u.role, u.created_at,
-        m.name AS major_name,
+        " . localizedNameSql('m') . " AS major_name,
         (SELECT COUNT(*) FROM academic_records ar WHERE ar.user_id = u.id) AS record_count,
         (SELECT ar.status FROM academic_records ar WHERE ar.user_id = u.id
             ORDER BY ar.created_at DESC, ar.id DESC LIMIT 1) AS latest_status,

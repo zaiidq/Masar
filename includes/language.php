@@ -68,3 +68,16 @@ function formatLocalizedDate(int $timestamp, bool $withTime = false): string
 
     return $text;
 }
+
+/**
+ * SQL expression for a lookup name (faculty / major) in the interface
+ * language, falling back to the English name.
+ */
+function localizedNameSql(string $tableAlias = ''): string
+{
+    $prefix = $tableAlias !== '' ? $tableAlias . '.' : '';
+
+    return currentLanguage() === 'ar'
+        ? "COALESCE(NULLIF({$prefix}name_ar, ''), {$prefix}name)"
+        : "{$prefix}name";
+}

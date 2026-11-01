@@ -4,7 +4,8 @@
 --  Run after schema.sql:
 --    mysql -u root -p masar_db < database/seed.sql
 --
---  Safe to run more than once (INSERT IGNORE on primary keys).
+--  Safe to run more than once: existing rows keep their data, and
+--  the Arabic faculty/major names are filled in or refreshed.
 --  Contains no personal data.
 -- ============================================================
 
@@ -14,57 +15,59 @@ SET NAMES utf8mb4;
 --  Faculties
 -- ------------------------------------------------------------
 
-INSERT IGNORE INTO `faculties` (`id`, `name`) VALUES
-(1, 'Faculty of Arts and Educational Sciences'),
-(2, 'Faculty of Law'),
-(3, 'Faculty of Business'),
-(4, 'Faculty of Information Technology'),
-(5, 'Faculty of Media'),
-(6, 'Faculty of Engineering and Design'),
-(7, 'Faculty of Pharmacy'),
-(8, 'Faculty of Allied Medical Sciences'),
-(9, 'Faculty of Nursing');
+INSERT INTO `faculties` (`id`, `name`, `name_ar`) VALUES
+(1, 'Faculty of Arts and Educational Sciences', 'كلية الآداب والعلوم التربوية'),
+(2, 'Faculty of Law', 'كلية الحقوق'),
+(3, 'Faculty of Business', 'كلية الأعمال'),
+(4, 'Faculty of Information Technology', 'كلية تكنولوجيا المعلومات'),
+(5, 'Faculty of Media', 'كلية الإعلام'),
+(6, 'Faculty of Engineering and Design', 'كلية الهندسة والتصميم'),
+(7, 'Faculty of Pharmacy', 'كلية الصيدلة'),
+(8, 'Faculty of Allied Medical Sciences', 'كلية العلوم الطبية المساندة'),
+(9, 'Faculty of Nursing', 'كلية التمريض')
+ON DUPLICATE KEY UPDATE `name_ar` = VALUES(`name_ar`);
 
 -- ------------------------------------------------------------
 --  Majors
 -- ------------------------------------------------------------
 
-INSERT IGNORE INTO `majors` (`id`, `faculty_id`, `name`) VALUES
-(1, 1, 'English Language and Literature'),
-(2, 1, 'Arabic Language and Literature'),
-(3, 1, 'Applied Translation'),
-(4, 1, 'Education Technology'),
-(5, 1, 'Sports Management and Training'),
-(6, 2, 'Law'),
-(7, 3, 'Business Administration'),
-(8, 3, 'Accounting'),
-(9, 3, 'E-Marketing and Social Media'),
-(10, 3, 'E-Business and E-Commerce'),
-(11, 3, 'Business Intelligence'),
-(12, 3, 'Human Resource Management'),
-(13, 3, 'Financial Technology (FinTech)'),
-(14, 3, 'Supply Chain & Digital Logistics Management'),
-(15, 3, 'Business and Psychology'),
-(16, 4, 'Computer Science'),
-(17, 4, 'Software Engineering'),
-(18, 4, 'Cyber Security'),
-(19, 4, 'Artificial Intelligence'),
-(20, 5, 'Journalism and Media'),
-(21, 5, 'Radio and Television'),
-(22, 5, 'Digital Media'),
-(23, 6, 'Renewable Energy Engineering'),
-(24, 6, 'Intelligence Systems Engineering'),
-(25, 6, 'Architecture'),
-(26, 6, 'Biomedical Engineering'),
-(27, 6, 'Graphic Design'),
-(28, 6, 'Interior Design'),
-(29, 7, 'Pharmacy'),
-(30, 8, 'Physiotherapy'),
-(31, 8, 'Medical Analysis and Laboratory Sciences'),
-(32, 8, 'Nutrition and Integrative Health'),
-(33, 8, 'Genetic Engineering and Biotechnology'),
-(34, 8, 'Paramedic and Emergency Science'),
-(35, 9, 'Nursing');
+INSERT INTO `majors` (`id`, `faculty_id`, `name`, `name_ar`) VALUES
+(1, 1, 'English Language and Literature', 'اللغة الإنجليزية وآدابها'),
+(2, 1, 'Arabic Language and Literature', 'اللغة العربية وآدابها'),
+(3, 1, 'Applied Translation', 'الترجمة التطبيقية'),
+(4, 1, 'Education Technology', 'تكنولوجيا التعليم'),
+(5, 1, 'Sports Management and Training', 'الإدارة والتدريب الرياضي'),
+(6, 2, 'Law', 'القانون'),
+(7, 3, 'Business Administration', 'إدارة الأعمال'),
+(8, 3, 'Accounting', 'المحاسبة'),
+(9, 3, 'E-Marketing and Social Media', 'التسويق الإلكتروني ووسائل التواصل الاجتماعي'),
+(10, 3, 'E-Business and E-Commerce', 'الأعمال الإلكترونية والتجارة الإلكترونية'),
+(11, 3, 'Business Intelligence', 'ذكاء الأعمال'),
+(12, 3, 'Human Resource Management', 'إدارة الموارد البشرية'),
+(13, 3, 'Financial Technology (FinTech)', 'التكنولوجيا المالية'),
+(14, 3, 'Supply Chain & Digital Logistics Management', 'إدارة سلاسل التوريد واللوجستيات الرقمية'),
+(15, 3, 'Business and Psychology', 'الأعمال وعلم النفس'),
+(16, 4, 'Computer Science', 'علم الحاسوب'),
+(17, 4, 'Software Engineering', 'هندسة البرمجيات'),
+(18, 4, 'Cyber Security', 'الأمن السيبراني'),
+(19, 4, 'Artificial Intelligence', 'الذكاء الاصطناعي'),
+(20, 5, 'Journalism and Media', 'الصحافة والإعلام'),
+(21, 5, 'Radio and Television', 'الإذاعة والتلفزيون'),
+(22, 5, 'Digital Media', 'الإعلام الرقمي'),
+(23, 6, 'Renewable Energy Engineering', 'هندسة الطاقة المتجددة'),
+(24, 6, 'Intelligence Systems Engineering', 'هندسة الأنظمة الذكية'),
+(25, 6, 'Architecture', 'العمارة'),
+(26, 6, 'Biomedical Engineering', 'الهندسة الطبية الحيوية'),
+(27, 6, 'Graphic Design', 'التصميم الجرافيكي'),
+(28, 6, 'Interior Design', 'التصميم الداخلي'),
+(29, 7, 'Pharmacy', 'الصيدلة'),
+(30, 8, 'Physiotherapy', 'العلاج الطبيعي'),
+(31, 8, 'Medical Analysis and Laboratory Sciences', 'التحاليل الطبية وعلوم المختبرات'),
+(32, 8, 'Nutrition and Integrative Health', 'التغذية والصحة المتكاملة'),
+(33, 8, 'Genetic Engineering and Biotechnology', 'الهندسة الوراثية والتكنولوجيا الحيوية'),
+(34, 8, 'Paramedic and Emergency Science', 'علوم الإسعاف والطوارئ'),
+(35, 9, 'Nursing', 'التمريض')
+ON DUPLICATE KEY UPDATE `name_ar` = VALUES(`name_ar`);
 
 -- ------------------------------------------------------------
 --  University links

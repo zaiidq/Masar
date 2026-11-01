@@ -45,7 +45,7 @@ if (
 
         <nav
             class="student-primary-nav"
-            aria-label="Student navigation"
+            aria-label="<?= htmlspecialchars(t('nav_student_label'), ENT_QUOTES) ?>"
         >
             <a
                 href="/masar/student/dashboard.php"
@@ -246,7 +246,7 @@ if (
 
 <nav
     class="student-mobile-bottom-nav"
-    aria-label="Mobile student navigation"
+    aria-label="<?= htmlspecialchars(t('nav_student_mobile_label'), ENT_QUOTES) ?>"
 >
     <a
         href="/masar/student/dashboard.php"

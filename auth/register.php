@@ -30,13 +30,13 @@ $selectedFacultyId = 0;
 $selectedMajorId = 0;
 
 $faculties = $pdo->query(
-    'SELECT id, name
+    'SELECT id, ' . localizedNameSql() . ' AS name
      FROM faculties
      ORDER BY name'
 )->fetchAll();
 
 $majors = $pdo->query(
-    'SELECT id, faculty_id, name
+    'SELECT id, faculty_id, ' . localizedNameSql() . ' AS name
      FROM majors
      ORDER BY name'
 )->fetchAll();
@@ -250,7 +250,8 @@ $languageSwitchUrl = '/masar/switch-language.php?lang='
     <section class="auth-form-pane-new">
         <div class="auth-toolbar-new">
             <a class="auth-mobile-logo-new" href="/masar/auth/login.php" aria-label="Masar">
-                <img src="/masar/assets/brand/masar-logo-horizontal.svg" alt="Masar">
+                <img class="brand-logo-light" src="/masar/assets/brand/masar-logo-horizontal.svg" alt="Masar">
+                <img class="brand-logo-dark" src="/masar/assets/brand/masar-logo-horizontal-white.svg" alt="Masar">
             </a>
 
             <div class="auth-toolbar-new__actions">

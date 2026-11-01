@@ -124,10 +124,13 @@ Databases created before November 2026 need the v2 migration once:
 ```bash
 sudo mysqldump masar_db > ~/masar_backup_before_v2.sql
 sudo mysql masar_db < database/migrations/2026_11_01_masar_v2_upgrade.sql
+sudo mysql masar_db < database/seed.sql
 ```
 
-It adds the new columns and the Ask Masar / alerts tables without
-touching existing data.
+The migration adds the new columns and the Ask Masar / alerts tables
+without touching existing data; re-running the seed fills in the Arabic
+faculty and major names. Re-analyse a record (or re-plan from the
+Recommendations page) to get Arabic recommendation reasons.
 
 ## Configuration (`.env`)
 

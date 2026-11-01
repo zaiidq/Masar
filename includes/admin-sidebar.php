@@ -30,7 +30,7 @@ if (
         <a
             href="/masar/admin/dashboard.php"
             class="admin-brand"
-            aria-label="Masar Admin"
+            aria-label="<?= htmlspecialchars(t('admin_brand_label'), ENT_QUOTES) ?>"
         >
             <img
                 class="brand-logo-light"
@@ -167,7 +167,7 @@ if (
         <a
             href="/masar/admin/dashboard.php"
             class="admin-mobile-brand"
-            aria-label="Masar Admin"
+            aria-label="<?= htmlspecialchars(t('admin_brand_label'), ENT_QUOTES) ?>"
         >
             <img
                 class="brand-logo-light"

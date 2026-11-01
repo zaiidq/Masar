@@ -9,7 +9,7 @@ require_once __DIR__ . '/gemini-client.php';
  * Bump this whenever the prompt or schema below changes.
  * Stored per record so past analyses stay explainable.
  */
-const MASAR_PROMPT_VERSION = 'v5';
+const MASAR_PROMPT_VERSION = 'v6';
 
 /**
  * Instructions given to the model on every analysis.
@@ -310,7 +310,10 @@ component later.
 10. RECOMMENDATION EXPLANATIONS
 ----------------------------------------------------------------------
 
-For every recommended course, provide a short factual reason in English.
+For every recommended course, provide a short factual reason twice:
+"reason" in English and "reason_ar" in clear Modern Standard Arabic with
+the same meaning. Keep course codes as digits and course names exactly as
+written in the record (in English) inside the Arabic sentence.
 
 The reason should refer to the student's actual academic situation, for
 example:
@@ -423,10 +426,11 @@ function academicRecordResponseSchema(): array
                 'type' => 'ARRAY',
                 'items' => [
                     'type' => 'OBJECT',
-                    'required' => ['course_code', 'reason'],
+                    'required' => ['course_code', 'reason', 'reason_ar'],
                     'properties' => [
                         'course_code' => ['type' => 'STRING'],
                         'reason' => ['type' => 'STRING'],
+                        'reason_ar' => ['type' => 'STRING'],
                     ],
                 ],
             ],
@@ -889,6 +893,13 @@ function validateRecommendations(
                 0,
                 500
             ),
+            'reason_ar' => mb_substr(
+                trim(
+                    (string) ($recommendation['reason_ar'] ?? '')
+                ),
+                0,
+                500
+            ),
             'is_accepted' => $rejection === null ? 1 : 0,
             'rejection_reason' => $rejection !== null
                 ? mb_substr($rejection, 0, 255)
@@ -1330,11 +1341,11 @@ function analyzeAcademicRecord(
         $recommendationStatement = $pdo->prepare(
             'INSERT INTO record_recommendations (
                 record_id, course_code, course_name, credit_hours,
-                priority, reason, is_accepted, rejection_reason,
+                priority, reason, reason_ar, is_accepted, rejection_reason,
                 has_data_warning
             ) VALUES (
                 :record_id, :course_code, :course_name, :credit_hours,
-                :priority, :reason, :is_accepted, :rejection_reason,
+                :priority, :reason, :reason_ar, :is_accepted, :rejection_reason,
                 :has_data_warning
             )'
         );
@@ -1347,6 +1358,9 @@ function analyzeAcademicRecord(
                 'credit_hours' => $recommendation['credit_hours'],
                 'priority' => $recommendation['priority'],
                 'reason' => $recommendation['reason'],
+                'reason_ar' => $recommendation['reason_ar'] !== ''
+                    ? $recommendation['reason_ar']
+                    : null,
                 'is_accepted' => $recommendation['is_accepted'],
                 'rejection_reason' => $recommendation['rejection_reason'],
                 'has_data_warning' => $recommendation['has_data_warning'],

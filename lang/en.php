@@ -518,4 +518,11 @@ return [
     'event_admin_link_toggled' => 'Link shown/hidden',
     'event_admin_link_deleted' => 'Link deleted',
     'event_admin_alert_resolved' => 'Alert resolved',
+
+    /* Formatting and accessibility */
+    'unit_kb' => '%s KB',
+    'unit_mb' => '%s MB',
+    'nav_student_label' => 'Student navigation',
+    'nav_student_mobile_label' => 'Student navigation (mobile)',
+    'admin_brand_label' => 'Masar administration',
 ];
