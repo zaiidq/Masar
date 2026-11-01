@@ -76,7 +76,7 @@ require_once __DIR__ . '/../includes/sidebar.php';
             <?php foreach ($linksByCategory as $category => $categoryLinks): ?>
                 <section class="resources-group-new">
                     <div class="resources-group-new__heading">
-                        <h2 dir="auto"><?= htmlspecialchars($category) ?></h2>
+                        <h2><bdi><?= htmlspecialchars($category) ?></bdi></h2>
                         <span><?= count($categoryLinks) ?></span>
                     </div>
 
@@ -84,13 +84,13 @@ require_once __DIR__ . '/../includes/sidebar.php';
                         <?php foreach ($categoryLinks as $link): ?>
                             <article class="resource-row-new">
                                 <div class="resource-row-new__copy">
-                                    <h3 dir="auto">
-                                        <?= htmlspecialchars($link['title']) ?>
+                                    <h3>
+                                        <bdi><?= htmlspecialchars($link['title']) ?></bdi>
                                     </h3>
 
                                     <?php if (!empty($link['description'])): ?>
-                                        <p dir="auto">
-                                            <?= htmlspecialchars($link['description']) ?>
+                                        <p>
+                                            <bdi><?= htmlspecialchars($link['description']) ?></bdi>
                                         </p>
                                     <?php endif; ?>
                                 </div>

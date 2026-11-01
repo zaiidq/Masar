@@ -1,0 +1,31 @@
+# ------------------------------------------------------------
+#  Masar — web server protection (Apache 2.4)
+#
+#  Requires "AllowOverride All" (or at least "AuthConfig Limit
+#  Options FileInfo Indexes") for this directory in the Apache
+#  site configuration. See README.md → "Securing the server".
+# ------------------------------------------------------------
+
+# No directory listings.
+Options -Indexes
+
+# Block dotfiles (.env, .git, .htaccess ...).
+<FilesMatch "^\.">
+    Require all denied
+</FilesMatch>
+
+# Block project and build files that are not web pages.
+<FilesMatch "\.(md|sql|sh|lock|log|ini|dist|example)$|^composer\.json$">
+    Require all denied
+</FilesMatch>
+
+# Internal directories (each also has its own .htaccess where tracked).
+<If "%{REQUEST_URI} =~ m#/(vendor|includes|config|database|tools|lang|storage|backups)(/|$)#">
+    Require all denied
+</If>
+
+# Defence in depth if mod_rewrite is available: never serve .git.
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteRule (^|/)\.git(/|$) - [F,L]
+</IfModule>

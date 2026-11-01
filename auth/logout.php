@@ -7,6 +7,16 @@ session_start();
 
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../includes/activity-logger.php';
+require_once __DIR__ . '/../includes/csrf.php';
+
+/*
+ * Logout only via POST with a valid token, so another site cannot sign
+ * a user out with a hidden link or image.
+ */
+if ($_SERVER['REQUEST_METHOD'] !== 'POST' || !verifyCsrf()) {
+    header('Location: /masar/index.php');
+    exit;
+}
 
 $userId = isset($_SESSION['user_id'])
     ? (int) $_SESSION['user_id']
@@ -20,6 +30,8 @@ if ($userId !== null) {
         'User logged out'
     );
 }
+
+$language = $_SESSION['language'] ?? null;
 
 $_SESSION = [];
 
@@ -39,5 +51,11 @@ if (ini_get('session.use_cookies')) {
 
 session_destroy();
 
-header('Location: login.php');
+/* Keep the interface language on the login page. */
+if ($language !== null) {
+    session_start();
+    $_SESSION['language'] = $language;
+}
+
+header('Location: /masar/auth/login.php');
 exit;

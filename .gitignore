@@ -6,4 +6,6 @@ Thumbs.db
 .DS_Store
 storage/academic-records/*
 !storage/academic-records/.gitkeep
-
+storage/sessions/*
+!storage/sessions/.gitkeep
+backups/

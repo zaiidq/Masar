@@ -1,4 +1,10 @@
 -- ============================================================
+--  LEGACY — kept for history only.
+--  Fresh installs: use database/schema.sql (already includes this).
+--  Existing databases: use 2026_11_01_masar_v2_upgrade.sql.
+--  Running this file on a current database fails, because the
+--  columns it adds already exist.
+-- ============================================================
 --  Masar — Migration: AI analysis storage
 --  Date: 2026-08-07
 --

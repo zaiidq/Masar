@@ -45,7 +45,7 @@ if (
 
         <nav
             class="student-primary-nav"
-            aria-label="Student navigation"
+            aria-label="<?= htmlspecialchars(t('nav_student_label'), ENT_QUOTES) ?>"
         >
             <a
                 href="/masar/student/dashboard.php"
@@ -97,24 +97,13 @@ if (
                 <?= htmlspecialchars(t('switch_language')) ?>
             </a>
 
-            <button
-                type="button"
-                class="theme-toggle"
-                data-theme-toggle
-                aria-label="Switch to dark mode"
-                aria-pressed="false"
-                title="Change theme"
-            >
-                <span
-                    class="theme-toggle__icon"
-                    data-theme-icon
-                    aria-hidden="true"
-                >☾</span>
-            </button>
+            <?php require __DIR__ . '/theme-toggle.php'; ?>
 
-            <span
-                class="student-ask-masar is-disabled"
-                aria-disabled="true"
+            <a
+                href="/masar/student/ask-masar.php"
+                class="student-ask-masar <?= $currentStudentPage === 'ask-masar.php'
+                    ? 'is-active'
+                    : '' ?>"
             >
                 <img
                     src="/masar/assets/brand/masar-mark.svg"
@@ -123,7 +112,7 @@ if (
                 >
 
                 <?= htmlspecialchars(t('ask_masar')) ?>
-            </span>
+            </a>
 
             <div
                 class="student-user-menu"
@@ -159,13 +148,12 @@ if (
                         <?= htmlspecialchars(t('profile')) ?>
                     </a>
 
-                    <a
-                        href="/masar/auth/logout.php"
-                        role="menuitem"
-                        class="student-user-dropdown__logout"
-                    >
-                        <?= htmlspecialchars(t('logout')) ?>
-                    </a>
+                    <form method="POST" action="/masar/auth/logout.php" class="user-menu-logout-form">
+                        <?= csrfField() ?>
+                        <button type="submit" role="menuitem" class="student-user-dropdown__logout">
+                            <?= htmlspecialchars(t('logout')) ?>
+                        </button>
+                    </form>
                 </div>
             </div>
 
@@ -206,20 +194,7 @@ if (
                 <?= htmlspecialchars(t('switch_language')) ?>
             </a>
 
-            <button
-                type="button"
-                class="theme-toggle"
-                data-theme-toggle
-                aria-label="Switch to dark mode"
-                aria-pressed="false"
-                title="Change theme"
-            >
-                <span
-                    class="theme-toggle__icon"
-                    data-theme-icon
-                    aria-hidden="true"
-                >☾</span>
-            </button>
+            <?php require __DIR__ . '/theme-toggle.php'; ?>
 
             <div
                 class="student-user-menu"
@@ -254,13 +229,12 @@ if (
                         <?= htmlspecialchars(t('profile')) ?>
                     </a>
 
-                    <a
-                        href="/masar/auth/logout.php"
-                        role="menuitem"
-                        class="student-user-dropdown__logout"
-                    >
-                        <?= htmlspecialchars(t('logout')) ?>
-                    </a>
+                    <form method="POST" action="/masar/auth/logout.php" class="user-menu-logout-form">
+                        <?= csrfField() ?>
+                        <button type="submit" role="menuitem" class="student-user-dropdown__logout">
+                            <?= htmlspecialchars(t('logout')) ?>
+                        </button>
+                    </form>
                 </div>
             </div>
 
@@ -272,7 +246,7 @@ if (
 
 <nav
     class="student-mobile-bottom-nav"
-    aria-label="Mobile student navigation"
+    aria-label="<?= htmlspecialchars(t('nav_student_mobile_label'), ENT_QUOTES) ?>"
 >
     <a
         href="/masar/student/dashboard.php"
@@ -301,10 +275,21 @@ if (
         <?= htmlspecialchars(t('next_short')) ?>
     </a>
 
-    <span
-        class="is-disabled"
-        aria-disabled="true"
+    <a
+        href="/masar/student/ask-masar.php"
+        class="<?= $currentStudentPage === 'ask-masar.php'
+            ? 'is-active'
+            : '' ?>"
     >
         <?= htmlspecialchars(t('ask_short')) ?>
-    </span>
+    </a>
+
+    <a
+        href="/masar/student/university-links.php"
+        class="<?= $currentStudentPage === 'university-links.php'
+            ? 'is-active'
+            : '' ?>"
+    >
+        <?= htmlspecialchars(t('links_short')) ?>
+    </a>
 </nav>

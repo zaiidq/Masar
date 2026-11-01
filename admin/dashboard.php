@@ -2,72 +2,115 @@
 
 declare(strict_types=1);
 
-require_once __DIR__ . '/../includes/auth_check.php';
-require_once __DIR__ . '/../config/database.php';
-require_once __DIR__ . '/../includes/language.php';
-
-if ($_SESSION['role'] !== 'admin') {
-    header('Location: ../student/dashboard.php');
-    exit;
-}
+require_once __DIR__ . '/../includes/admin-common.php';
 
 /*
 |--------------------------------------------------------------------------
-| Users statistics
+| Statistics (FR14: system usage)
 |--------------------------------------------------------------------------
 */
 
 $userStats = $pdo->query(
     "SELECT
         COUNT(*) AS total_users,
-        SUM(role = 'student') AS total_students,
-        SUM(role = 'admin') AS total_admins
+        COALESCE(SUM(role = 'student'), 0) AS total_students,
+        COALESCE(SUM(role = 'admin'), 0) AS total_admins,
+        COALESCE(SUM(created_at > NOW() - INTERVAL 7 DAY), 0) AS new_this_week
      FROM users"
 )->fetch();
-
-/*
-|--------------------------------------------------------------------------
-| University links statistics
-|--------------------------------------------------------------------------
-*/
 
 $linkStats = $pdo->query(
     'SELECT
         COUNT(*) AS total_links,
-        SUM(is_active = 1) AS active_links,
-        SUM(is_active = 0) AS hidden_links
+        COALESCE(SUM(is_active = 1), 0) AS active_links,
+        COALESCE(SUM(is_active = 0), 0) AS hidden_links
      FROM university_links'
+)->fetch();
+
+$activityStats = $pdo->query(
+    "SELECT
+        COALESCE(SUM(event_type = 'LOGIN_SUCCESS'), 0) AS successful_logins,
+        COALESCE(SUM(event_type = 'LOGIN_FAILED'), 0) AS failed_logins
+     FROM activity_logs
+     WHERE created_at > NOW() - INTERVAL 1 DAY"
+)->fetch();
+
+$alertStats = $pdo->query(
+    "SELECT
+        COUNT(*) AS open_alerts,
+        COALESCE(SUM(severity = 'critical'), 0) AS critical_alerts
+     FROM system_alerts
+     WHERE is_resolved = 0"
 )->fetch();
 
 /*
 |--------------------------------------------------------------------------
-| Activity log statistics
+| AI evaluation: how often the deterministic validator corrected the model
 |--------------------------------------------------------------------------
 */
 
-$activityStats = $pdo->query(
+$analysisStats = $pdo->query(
     "SELECT
-        COUNT(*) AS total_activity,
-        SUM(event_type = 'LOGIN_SUCCESS') AS successful_logins,
-        SUM(event_type = 'LOGIN_FAILED') AS failed_logins
-     FROM activity_logs"
+        COALESCE(SUM(status = 'analyzed'), 0) AS analyzed,
+        COALESCE(SUM(status = 'failed'), 0) AS failed,
+        COUNT(DISTINCT CASE WHEN status = 'analyzed' THEN user_id END) AS students_with_analysis
+     FROM academic_records"
 )->fetch();
 
-$totalUsers = (int) ($userStats['total_users'] ?? 0);
-$totalStudents = (int) ($userStats['total_students'] ?? 0);
-$totalAdmins = (int) ($userStats['total_admins'] ?? 0);
+$recommendationStats = $pdo->query(
+    'SELECT
+        COUNT(*) AS total,
+        COALESCE(SUM(is_accepted = 1), 0) AS accepted,
+        COALESCE(SUM(is_accepted = 0), 0) AS rejected
+     FROM record_recommendations'
+)->fetch();
 
-$totalLinks = (int) ($linkStats['total_links'] ?? 0);
-$activeLinks = (int) ($linkStats['active_links'] ?? 0);
-$hiddenLinks = (int) ($linkStats['hidden_links'] ?? 0);
+$rejectionReasons = $pdo->query(
+    "SELECT
+        SUBSTRING_INDEX(rejection_reason, ':', 1) AS reason,
+        COUNT(*) AS total
+     FROM record_recommendations
+     WHERE is_accepted = 0
+     GROUP BY reason
+     ORDER BY total DESC
+     LIMIT 5"
+)->fetchAll();
 
-$totalActivity = (int) ($activityStats['total_activity'] ?? 0);
-$successfulLogins = (int) ($activityStats['successful_logins'] ?? 0);
-$failedLogins = (int) ($activityStats['failed_logins'] ?? 0);
+$chatStats = $pdo->query(
+    "SELECT
+        (SELECT COUNT(*) FROM chat_sessions) AS sessions,
+        (SELECT COUNT(*) FROM chat_messages WHERE role = 'user') AS questions,
+        (SELECT COUNT(*) FROM chat_messages
+            WHERE role = 'user' AND created_at > NOW() - INTERVAL 7 DAY) AS questions_week"
+)->fetch();
 
+$totalRecommendations = (int) $recommendationStats['total'];
+$acceptedShare = $totalRecommendations > 0
+    ? round((int) $recommendationStats['accepted'] / $totalRecommendations * 100, 1)
+    : null;
+
+$totalAnalyses = (int) $analysisStats['analyzed'] + (int) $analysisStats['failed'];
+$analysisSuccessShare = $totalAnalyses > 0
+    ? round((int) $analysisStats['analyzed'] / $totalAnalyses * 100, 1)
+    : null;
+
+$totalLinks = (int) $linkStats['total_links'];
 $activeLinkShare = $totalLinks > 0
-    ? min(100, ($activeLinks / $totalLinks) * 100)
+    ? min(100, (int) $linkStats['active_links'] / $totalLinks * 100)
     : 0;
+
+function rejectionReasonLabel(string $reason): string
+{
+    return match (true) {
+        str_starts_with($reason, 'Unmet prerequisite') => t('admin_ai_reason_prerequisite'),
+        str_starts_with($reason, 'Course has already been completed') => t('admin_ai_reason_completed'),
+        str_starts_with($reason, 'Course is already registered') => t('admin_ai_reason_in_progress'),
+        str_starts_with($reason, 'Course is not part') => t('admin_ai_reason_not_in_record'),
+        str_starts_with($reason, 'Course credit hours') => t('admin_ai_reason_hours'),
+        str_starts_with($reason, 'Exceeds') => t('admin_ai_reason_limit'),
+        default => $reason,
+    };
+}
 
 $pageTitle = t('admin_dashboard_page_title');
 
@@ -81,66 +124,68 @@ require_once __DIR__ . '/../includes/admin-sidebar.php';
         <div class="admin-hero-new__copy">
             <span class="admin-eyebrow-new">
                 <span class="admin-eyebrow-new__tick"></span>
-                <?= htmlspecialchars(t('admin_overview_eyebrow')) ?>
+                <?= adminEscape(t('admin_overview_eyebrow')) ?>
             </span>
 
-            <h1><?= htmlspecialchars(t('admin_overview_headline')) ?></h1>
-
-            <p><?= htmlspecialchars(t('admin_overview_intro')) ?></p>
+            <h1><?= adminEscape(t('admin_overview_headline')) ?></h1>
+            <p><?= adminEscape(t('admin_overview_intro')) ?></p>
         </div>
 
-        <img
-            class="admin-hero-new__mark"
-            src="/masar/assets/brand/masar-mark.svg"
-            alt=""
-        >
+        <img class="admin-hero-new__mark" src="/masar/assets/brand/masar-mark.svg" alt="">
     </section>
 
-    <section class="admin-overview-grid-new">
+    <?php if ((int) $alertStats['open_alerts'] > 0): ?>
+        <a
+            href="/masar/admin/alerts.php"
+            class="admin-alert-banner <?= (int) $alertStats['critical_alerts'] > 0 ? 'admin-alert-banner--critical' : '' ?>"
+        >
+            <strong><?= adminEscape(sprintf(t('admin_open_alerts_banner'), (int) $alertStats['open_alerts'])) ?></strong>
+            <span><?= adminEscape(t('admin_review_alerts')) ?> →</span>
+        </a>
+    <?php endif; ?>
+
+    <section class="admin-overview-grid-new admin-overview-grid-new--three">
 
         <article class="admin-overview-panel-new admin-overview-panel-new--users">
             <div class="admin-overview-panel-new__topline">
-                <span><?= htmlspecialchars(t('admin_users_label')) ?></span>
-                <span><?= htmlspecialchars(t('admin_registered_label')) ?></span>
+                <span><?= adminEscape(t('admin_users_label')) ?></span>
+                <a href="/masar/admin/users.php"><?= adminEscape(t('admin_manage')) ?></a>
             </div>
 
-            <div class="admin-overview-number-new">
-                <?= number_format($totalUsers) ?>
-            </div>
+            <div class="admin-overview-number-new"><?= number_format((int) $userStats['total_users']) ?></div>
 
             <div class="admin-overview-split-new">
                 <div>
-                    <span><?= htmlspecialchars(t('admin_students_label')) ?></span>
-                    <strong><?= number_format($totalStudents) ?></strong>
+                    <span><?= adminEscape(t('admin_students_label')) ?></span>
+                    <strong><?= number_format((int) $userStats['total_students']) ?></strong>
                 </div>
-
                 <div>
-                    <span><?= htmlspecialchars(t('admin_administrators_label')) ?></span>
-                    <strong><?= number_format($totalAdmins) ?></strong>
+                    <span><?= adminEscape(t('admin_administrators_label')) ?></span>
+                    <strong><?= number_format((int) $userStats['total_admins']) ?></strong>
+                </div>
+                <div>
+                    <span><?= adminEscape(t('admin_new_this_week')) ?></span>
+                    <strong><?= number_format((int) $userStats['new_this_week']) ?></strong>
                 </div>
             </div>
         </article>
 
         <article class="admin-overview-panel-new admin-overview-panel-new--links">
             <div class="admin-overview-panel-new__topline">
-                <span><?= htmlspecialchars(t('admin_resources_label')) ?></span>
-                <span><?= htmlspecialchars(t('admin_total_links_label')) ?></span>
+                <span><?= adminEscape(t('admin_resources_label')) ?></span>
+                <a href="/masar/admin/university-links.php"><?= adminEscape(t('admin_manage')) ?></a>
             </div>
 
-            <div class="admin-overview-number-new">
-                <?= number_format($totalLinks) ?>
-            </div>
+            <div class="admin-overview-number-new"><?= number_format($totalLinks) ?></div>
 
             <div
                 class="admin-link-health-new"
                 role="img"
-                aria-label="<?= htmlspecialchars(
-                    sprintf(
-                        t('admin_links_status_summary'),
-                        $activeLinks,
-                        $hiddenLinks
-                    )
-                ) ?>"
+                aria-label="<?= adminEscape(sprintf(
+                    t('admin_links_status_summary'),
+                    (int) $linkStats['active_links'],
+                    (int) $linkStats['hidden_links']
+                )) ?>"
             >
                 <span
                     class="admin-link-health-new__active"
@@ -151,107 +196,104 @@ require_once __DIR__ . '/../includes/admin-sidebar.php';
             <div class="admin-link-legend-new">
                 <span>
                     <i class="admin-link-legend-new__dot admin-link-legend-new__dot--active"></i>
-                    <?= htmlspecialchars(
-                        sprintf(
-                            t('admin_active_links_count'),
-                            $activeLinks
-                        )
-                    ) ?>
+                    <?= adminEscape(sprintf(t('admin_active_links_count'), (int) $linkStats['active_links'])) ?>
                 </span>
-
                 <span>
                     <i class="admin-link-legend-new__dot admin-link-legend-new__dot--hidden"></i>
-                    <?= htmlspecialchars(
-                        sprintf(
-                            t('admin_hidden_links_count'),
-                            $hiddenLinks
-                        )
-                    ) ?>
+                    <?= adminEscape(sprintf(t('admin_hidden_links_count'), (int) $linkStats['hidden_links'])) ?>
                 </span>
             </div>
         </article>
 
+        <article class="admin-overview-panel-new">
+            <div class="admin-overview-panel-new__topline">
+                <span><?= adminEscape(t('admin_activity_24h')) ?></span>
+                <a href="/masar/admin/activity-log.php"><?= adminEscape(t('admin_view_log')) ?></a>
+            </div>
+
+            <div class="admin-overview-number-new"><?= number_format((int) $activityStats['successful_logins']) ?></div>
+
+            <div class="admin-overview-split-new">
+                <div>
+                    <span><?= adminEscape(t('admin_successful_logins')) ?></span>
+                    <strong><?= number_format((int) $activityStats['successful_logins']) ?></strong>
+                </div>
+                <div>
+                    <span><?= adminEscape(t('admin_failed_logins')) ?></span>
+                    <strong><?= number_format((int) $activityStats['failed_logins']) ?></strong>
+                </div>
+            </div>
+        </article>
     </section>
 
-    <section class="admin-manage-strip-new">
-        <div>
-            <span class="admin-manage-strip-new__label">
-                <?= htmlspecialchars(t('admin_manage_links_eyebrow')) ?>
-            </span>
-
-            <h2><?= htmlspecialchars(t('admin_manage_links_title')) ?></h2>
-
-            <p><?= htmlspecialchars(t('admin_manage_links_body')) ?></p>
+    <section class="admin-ai-panel">
+        <div class="admin-ai-panel__heading">
+            <span class="admin-manage-strip-new__label"><?= adminEscape(t('admin_ai_eyebrow')) ?></span>
+            <h2><?= adminEscape(t('admin_ai_title')) ?></h2>
+            <p><?= adminEscape(t('admin_ai_intro')) ?></p>
         </div>
 
-        <a
-            href="/masar/admin/university-links.php"
-            class="admin-primary-action-new"
-        >
-            <span><?= htmlspecialchars(t('admin_manage_links_action')) ?></span>
-            <span aria-hidden="true">→</span>
-        </a>
-    </section>
+        <div class="admin-ai-metrics">
+            <div class="admin-ai-metric">
+                <span><?= adminEscape(t('admin_ai_acceptance')) ?></span>
+                <strong><?= $acceptedShare !== null ? adminEscape($acceptedShare . '%') : '—' ?></strong>
+                <small><?= adminEscape(sprintf(
+                    t('admin_ai_accepted_of'),
+                    (int) $recommendationStats['accepted'],
+                    $totalRecommendations
+                )) ?></small>
+            </div>
 
-    <!-- Activity Log -->
-    <section
-        class="admin-manage-strip-new"
-        style="margin-top: 18px;"
-    >
-        <div>
-            <span class="admin-manage-strip-new__label">
-                Monitoring
-            </span>
+            <div class="admin-ai-metric">
+                <span><?= adminEscape(t('admin_ai_corrected')) ?></span>
+                <strong><?= number_format((int) $recommendationStats['rejected']) ?></strong>
+                <small><?= adminEscape(t('admin_ai_corrected_help')) ?></small>
+            </div>
 
-            <h2>Activity Log</h2>
+            <div class="admin-ai-metric">
+                <span><?= adminEscape(t('admin_ai_analysis_success')) ?></span>
+                <strong><?= $analysisSuccessShare !== null ? adminEscape($analysisSuccessShare . '%') : '—' ?></strong>
+                <small><?= adminEscape(sprintf(
+                    t('admin_ai_analyses_of'),
+                    (int) $analysisStats['analyzed'],
+                    $totalAnalyses,
+                    (int) $analysisStats['students_with_analysis']
+                )) ?></small>
+            </div>
 
-            <p>
-                Monitor important Masar activity including successful
-                logins, failed login attempts, user IP addresses,
-                uploads and analysis events.
-            </p>
-
-            <div
-                style="
-                    display: flex;
-                    flex-wrap: wrap;
-                    gap: 18px;
-                    margin-top: 14px;
-                    font-size: 14px;
-                "
-            >
-                <span>
-                    <strong><?= number_format($totalActivity) ?></strong>
-                    total events
-                </span>
-
-                <span>
-                    <strong><?= number_format($successfulLogins) ?></strong>
-                    successful logins
-                </span>
-
-                <span>
-                    <strong><?= number_format($failedLogins) ?></strong>
-                    failed logins
-                </span>
+            <div class="admin-ai-metric">
+                <span><?= adminEscape(t('ask_masar')) ?></span>
+                <strong><?= number_format((int) $chatStats['questions']) ?></strong>
+                <small><?= adminEscape(sprintf(
+                    t('admin_ai_chat_usage'),
+                    (int) $chatStats['sessions'],
+                    (int) $chatStats['questions_week']
+                )) ?></small>
             </div>
         </div>
 
-        <a
-            href="/masar/admin/activity-log.php"
-            class="admin-primary-action-new"
-        >
-            <span>View Activity Log</span>
-            <span aria-hidden="true">→</span>
-        </a>
+        <?php if ($rejectionReasons): ?>
+            <div class="admin-ai-reasons">
+                <h3><?= adminEscape(t('admin_ai_top_reasons')) ?></h3>
+                <ul>
+                    <?php foreach ($rejectionReasons as $row): ?>
+                        <?php $share = (int) $recommendationStats['rejected'] > 0
+                            ? (int) $row['total'] / (int) $recommendationStats['rejected'] * 100
+                            : 0; ?>
+                        <li>
+                            <span><?= adminEscape(rejectionReasonLabel((string) $row['reason'])) ?></span>
+                            <span class="admin-ai-reasons__bar" aria-hidden="true">
+                                <span style="inline-size: <?= number_format($share, 1, '.', '') ?>%"></span>
+                            </span>
+                            <strong><?= (int) $row['total'] ?></strong>
+                        </li>
+                    <?php endforeach; ?>
+                </ul>
+            </div>
+        <?php endif; ?>
     </section>
 
-    <p class="admin-footnote-new">
-        <?= htmlspecialchars(t('admin_dashboard_note')) ?>
-    </p>
-
+    <p class="admin-footnote-new"><?= adminEscape(t('admin_dashboard_note')) ?></p>
 </main>
 
-<?php
-
-require_once __DIR__ . '/../includes/footer.php';
+<?php require_once __DIR__ . '/../includes/footer.php'; ?>

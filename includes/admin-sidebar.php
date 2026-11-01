@@ -11,6 +11,8 @@ $adminName = trim(
     (string) ($_SESSION['full_name'] ?? t('admin_role_label'))
 );
 
+$adminOpenAlerts = isset($pdo) ? adminOpenAlertCount($pdo) : 0;
+
 $adminInitial = 'A';
 
 if (
@@ -28,7 +30,7 @@ if (
         <a
             href="/masar/admin/dashboard.php"
             class="admin-brand"
-            aria-label="Masar Admin"
+            aria-label="<?= htmlspecialchars(t('admin_brand_label'), ENT_QUOTES) ?>"
         >
             <img
                 class="brand-logo-light"
@@ -61,6 +63,15 @@ if (
             </a>
 
             <a
+                href="/masar/admin/users.php"
+                class="<?= $currentAdminPage === 'users.php'
+                    ? 'is-active'
+                    : '' ?>"
+            >
+                <?= htmlspecialchars(t('admin_users_nav')) ?>
+            </a>
+
+            <a
                 href="/masar/admin/university-links.php"
                 class="<?= $currentAdminPage === 'university-links.php'
                     ? 'is-active'
@@ -75,7 +86,19 @@ if (
                     ? 'is-active'
                     : '' ?>"
             >
-                Activity Log
+                <?= htmlspecialchars(t('admin_activity_nav')) ?>
+            </a>
+
+            <a
+                href="/masar/admin/alerts.php"
+                class="<?= $currentAdminPage === 'alerts.php'
+                    ? 'is-active'
+                    : '' ?>"
+            >
+                <?= htmlspecialchars(t('admin_alerts_nav')) ?>
+                <?php if ($adminOpenAlerts > 0): ?>
+                    <span class="admin-nav-badge"><?= (int) $adminOpenAlerts ?></span>
+                <?php endif; ?>
             </a>
         </nav>
 
@@ -92,20 +115,7 @@ if (
                 <?= htmlspecialchars(t('switch_language')) ?>
             </a>
 
-            <button
-                type="button"
-                class="theme-toggle"
-                data-theme-toggle
-                aria-label="Switch to dark mode"
-                aria-pressed="false"
-                title="Change theme"
-            >
-                <span
-                    class="theme-toggle__icon"
-                    data-theme-icon
-                    aria-hidden="true"
-                >☾</span>
-            </button>
+            <?php require __DIR__ . '/theme-toggle.php'; ?>
 
             <div
                 class="admin-user-menu"
@@ -139,13 +149,12 @@ if (
                         </span>
                     </div>
 
-                    <a
-                        href="/masar/auth/logout.php"
-                        role="menuitem"
-                        class="admin-user-dropdown__logout"
-                    >
-                        <?= htmlspecialchars(t('logout')) ?>
-                    </a>
+                    <form method="POST" action="/masar/auth/logout.php" class="user-menu-logout-form">
+                        <?= csrfField() ?>
+                        <button type="submit" role="menuitem" class="admin-user-dropdown__logout">
+                            <?= htmlspecialchars(t('logout')) ?>
+                        </button>
+                    </form>
                 </div>
             </div>
 
@@ -158,7 +167,7 @@ if (
         <a
             href="/masar/admin/dashboard.php"
             class="admin-mobile-brand"
-            aria-label="Masar Admin"
+            aria-label="<?= htmlspecialchars(t('admin_brand_label'), ENT_QUOTES) ?>"
         >
             <img
                 class="brand-logo-light"
@@ -190,20 +199,7 @@ if (
                 <?= htmlspecialchars(t('switch_language')) ?>
             </a>
 
-            <button
-                type="button"
-                class="theme-toggle"
-                data-theme-toggle
-                aria-label="Switch to dark mode"
-                aria-pressed="false"
-                title="Change theme"
-            >
-                <span
-                    class="theme-toggle__icon"
-                    data-theme-icon
-                    aria-hidden="true"
-                >☾</span>
-            </button>
+            <?php require __DIR__ . '/theme-toggle.php'; ?>
 
             <div
                 class="admin-user-menu"
@@ -236,13 +232,12 @@ if (
                         </span>
                     </div>
 
-                    <a
-                        href="/masar/auth/logout.php"
-                        role="menuitem"
-                        class="admin-user-dropdown__logout"
-                    >
-                        <?= htmlspecialchars(t('logout')) ?>
-                    </a>
+                    <form method="POST" action="/masar/auth/logout.php" class="user-menu-logout-form">
+                        <?= csrfField() ?>
+                        <button type="submit" role="menuitem" class="admin-user-dropdown__logout">
+                            <?= htmlspecialchars(t('logout')) ?>
+                        </button>
+                    </form>
                 </div>
             </div>
 
@@ -266,6 +261,15 @@ if (
     </a>
 
     <a
+        href="/masar/admin/users.php"
+        class="<?= $currentAdminPage === 'users.php'
+            ? 'is-active'
+            : '' ?>"
+    >
+        <?= htmlspecialchars(t('admin_users_short')) ?>
+    </a>
+
+    <a
         href="/masar/admin/university-links.php"
         class="<?= $currentAdminPage === 'university-links.php'
             ? 'is-active'
@@ -280,6 +284,18 @@ if (
             ? 'is-active'
             : '' ?>"
     >
-        Activity Log
+        <?= htmlspecialchars(t('admin_activity_short')) ?>
+    </a>
+
+    <a
+        href="/masar/admin/alerts.php"
+        class="<?= $currentAdminPage === 'alerts.php'
+            ? 'is-active'
+            : '' ?>"
+    >
+        <?= htmlspecialchars(t('admin_alerts_short')) ?>
+        <?php if ($adminOpenAlerts > 0): ?>
+            <span class="admin-nav-badge"><?= (int) $adminOpenAlerts ?></span>
+        <?php endif; ?>
     </a>
 </nav>

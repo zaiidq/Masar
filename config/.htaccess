@@ -1,0 +1,2 @@
+# Internal directory: never served over HTTP.
+Require all denied

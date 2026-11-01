@@ -18,57 +18,96 @@ if (isset($_SESSION['user_id'])) {
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../includes/language.php';
 require_once __DIR__ . '/../includes/activity-logger.php';
+require_once __DIR__ . '/../includes/csrf.php';
+require_once __DIR__ . '/../includes/system-alerts.php';
 
 $error = '';
 $email = '';
+$notice = '';
+
+if (($_GET['deleted'] ?? '') === '1') {
+    $notice = t('auth_account_deleted');
+}
+
+$maxAttempts = max(3, (int) env('LOGIN_MAX_ATTEMPTS', '5'));
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $email = trim($_POST['email'] ?? '');
-    $password = $_POST['password'] ?? '';
+    $email = trim((string) ($_POST['email'] ?? ''));
+    $password = (string) ($_POST['password'] ?? '');
+    $ipAddress = getClientIpAddress();
 
-    $stmt = $pdo->prepare(
-        'SELECT id, full_name, email, password, role
-         FROM users
-         WHERE email = :email
-         LIMIT 1'
-    );
+    if (!verifyCsrf()) {
+        $error = t('auth_error_session_expired');
+    } elseif (recentFailedLogins($pdo, $ipAddress) >= $maxAttempts) {
+        /* Brute-force protection: too many failures from this address. */
+        $error = t('auth_error_too_many_attempts');
 
-    $stmt->execute([
-        'email' => $email,
-    ]);
+        logActivity($pdo, 'LOGIN_BLOCKED', null, 'email=' . mb_substr($email, 0, 150));
 
-    $user = $stmt->fetch();
-
-    if ($user && password_verify($password, $user['password'])) {
-    session_regenerate_id(true);
-
-    $_SESSION['user_id'] = $user['id'];
-    $_SESSION['full_name'] = $user['full_name'];
-    $_SESSION['role'] = $user['role'];
-
-    logActivity(
-        $pdo,
-        'LOGIN_SUCCESS',
-        (int) $user['id'],
-        'role=' . $user['role']
-    );
-
-    if ($user['role'] === 'admin') {
-        header('Location: ../admin/dashboard.php');
+        raiseSystemAlert(
+            $pdo,
+            'LOGIN_BLOCKED',
+            'warning',
+            sprintf('Repeated failed logins from %s (last email tried: %s).', $ipAddress ?? 'unknown IP', mb_substr($email, 0, 150)),
+            null,
+            15
+        );
     } else {
-        header('Location: ../student/dashboard.php');
+        $stmt = $pdo->prepare(
+            'SELECT id, full_name, email, password, role, preferred_language
+             FROM users
+             WHERE email = :email
+             LIMIT 1'
+        );
+
+        $stmt->execute([
+            'email' => $email,
+        ]);
+
+        $user = $stmt->fetch();
+
+        if ($user && password_verify($password, $user['password'])) {
+            session_regenerate_id(true);
+
+            $_SESSION['user_id'] = $user['id'];
+            $_SESSION['full_name'] = $user['full_name'];
+            $_SESSION['role'] = $user['role'];
+            $_SESSION['language'] = $user['preferred_language'];
+            unset($_SESSION['csrf_token']);
+
+            if (password_needs_rehash($user['password'], PASSWORD_DEFAULT)) {
+                $pdo->prepare('UPDATE users SET password = :password WHERE id = :id')
+                    ->execute([
+                        'password' => password_hash($password, PASSWORD_DEFAULT),
+                        'id' => $user['id'],
+                    ]);
+            }
+
+            logActivity(
+                $pdo,
+                'LOGIN_SUCCESS',
+                (int) $user['id'],
+                'role=' . $user['role']
+            );
+
+            header(
+                'Location: '
+                . ($user['role'] === 'admin'
+                    ? '/masar/admin/dashboard.php'
+                    : '/masar/student/dashboard.php')
+            );
+            exit;
+        }
+
+        logActivity(
+            $pdo,
+            'LOGIN_FAILED',
+            $user ? (int) $user['id'] : null,
+            $user ? 'invalid_password' : 'unknown_email'
+        );
+
+        $error = t('auth_login_error');
     }
-
-    exit;
-}
-logActivity(
-    $pdo,
-    'LOGIN_FAILED',
-    $user ? (int) $user['id'] : null,
-    $user ? 'invalid_password' : 'unknown_email'
-);
-
-    $error = t('auth_login_error');
 }
 
 $currentLanguage = currentLanguage();
@@ -97,7 +136,7 @@ $languageSwitchUrl = '/masar/switch-language.php?lang='
         href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Tajawal:wght@400;500;700&display=swap"
         rel="stylesheet"
     >
-    <link rel="stylesheet" href="/masar/assets/css/style.css?v=14">
+    <?php require __DIR__ . '/../includes/theme-head.php'; ?>
 </head>
 <body class="auth-body-new">
 <main class="auth-shell-new">
@@ -133,12 +172,17 @@ $languageSwitchUrl = '/masar/switch-language.php?lang='
     <section class="auth-form-pane-new">
         <div class="auth-toolbar-new">
             <a class="auth-mobile-logo-new" href="/masar/auth/login.php" aria-label="Masar">
-                <img src="/masar/assets/brand/masar-logo-horizontal.svg" alt="Masar">
+                <img class="brand-logo-light" src="/masar/assets/brand/masar-logo-horizontal.svg" alt="Masar">
+                <img class="brand-logo-dark" src="/masar/assets/brand/masar-logo-horizontal-white.svg" alt="Masar">
             </a>
 
-            <a class="auth-language-new" href="<?= htmlspecialchars($languageSwitchUrl, ENT_QUOTES, 'UTF-8') ?>">
-                <?= htmlspecialchars(t('switch_language')) ?>
-            </a>
+            <div class="auth-toolbar-new__actions">
+                <?php require __DIR__ . '/../includes/theme-toggle.php'; ?>
+
+                <a class="auth-language-new" href="<?= htmlspecialchars($languageSwitchUrl, ENT_QUOTES, 'UTF-8') ?>">
+                    <?= htmlspecialchars(t('switch_language')) ?>
+                </a>
+            </div>
         </div>
 
         <div class="auth-form-wrap-new">
@@ -148,6 +192,12 @@ $languageSwitchUrl = '/masar/switch-language.php?lang='
                 <p><?= htmlspecialchars(t('auth_login_intro')) ?></p>
             </header>
 
+            <?php if ($notice !== ''): ?>
+                <div class="auth-alert-new auth-alert-new--success" role="status">
+                    <?= htmlspecialchars($notice) ?>
+                </div>
+            <?php endif; ?>
+
             <?php if ($error !== ''): ?>
                 <div class="auth-alert-new auth-alert-new--error" role="alert">
                     <?= htmlspecialchars($error) ?>
@@ -155,6 +205,7 @@ $languageSwitchUrl = '/masar/switch-language.php?lang='
             <?php endif; ?>
 
             <form class="auth-form-new" method="POST" action="">
+                <?= csrfField() ?>
                 <div class="auth-field-new">
                     <label for="email"><?= htmlspecialchars(t('auth_email')) ?></label>
                     <input
@@ -169,28 +220,32 @@ $languageSwitchUrl = '/masar/switch-language.php?lang='
                 </div>
 
                 <div class="auth-field-new">
-    <label for="password"><?= htmlspecialchars(t('auth_password')) ?></label>
+                    <label for="password"><?= htmlspecialchars(t('auth_password')) ?></label>
 
-    <div class="password-field-wrapper">
-        <input
-            type="password"
-            id="password"
-            name="password"
-            autocomplete="current-password"
-            required
-        >
+                    <div class="password-field-wrapper">
+                        <input
+                            type="password"
+                            id="password"
+                            name="password"
+                            autocomplete="current-password"
+                            required
+                        >
 
-        <button
-            type="button"
-            class="password-toggle"
-            id="passwordToggle"
-            aria-label="Show password"
-            aria-pressed="false"
-        >
-            Show
-        </button>
-    </div>
-</div>
+                        <button
+                            type="button"
+                            class="password-toggle"
+                            id="passwordToggle"
+                            aria-label="<?= htmlspecialchars(t('auth_show_password'), ENT_QUOTES) ?>"
+                            aria-pressed="false"
+                            data-show-label="<?= htmlspecialchars(t('auth_show'), ENT_QUOTES) ?>"
+                            data-hide-label="<?= htmlspecialchars(t('auth_hide'), ENT_QUOTES) ?>"
+                            data-show-aria="<?= htmlspecialchars(t('auth_show_password'), ENT_QUOTES) ?>"
+                            data-hide-aria="<?= htmlspecialchars(t('auth_hide_password'), ENT_QUOTES) ?>"
+                        >
+                            <?= htmlspecialchars(t('auth_show')) ?>
+                        </button>
+                    </div>
+                </div>
 
                 <button type="submit" class="auth-submit-new">
                     <?= htmlspecialchars(t('auth_login_action')) ?>
@@ -215,15 +270,17 @@ $languageSwitchUrl = '/masar/switch-language.php?lang='
         passwordToggle.addEventListener('click', function () {
             const isHidden = passwordInput.type === 'password';
 
+            const data = passwordToggle.dataset;
+
             passwordInput.type = isHidden ? 'text' : 'password';
-            passwordToggle.textContent = isHidden ? 'Hide' : 'Show';
+            passwordToggle.textContent = isHidden ? data.hideLabel : data.showLabel;
             passwordToggle.setAttribute(
                 'aria-pressed',
                 isHidden ? 'true' : 'false'
             );
             passwordToggle.setAttribute(
                 'aria-label',
-                isHidden ? 'Hide password' : 'Show password'
+                isHidden ? data.hideAria : data.showAria
             );
         });
     }

@@ -7,6 +7,7 @@ require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../includes/language.php';
 require_once __DIR__ . '/../includes/academic-record-parser.php';
 require_once __DIR__ . '/../includes/academic-record-analyzer.php';
+require_once __DIR__ . '/../includes/activity-logger.php';
 
 if (($_SESSION['role'] ?? '') !== 'student') {
     header('Location: /masar/admin/dashboard.php');
@@ -27,10 +28,10 @@ function escape(?string $value): string
 function formatFileSize(int $bytes): string
 {
     if ($bytes >= 1024 * 1024) {
-        return number_format($bytes / (1024 * 1024), 2) . ' MB';
+        return sprintf(t('unit_mb'), number_format($bytes / (1024 * 1024), 2));
     }
 
-    return number_format($bytes / 1024, 2) . ' KB';
+    return sprintf(t('unit_kb'), number_format($bytes / 1024, 2));
 }
 
 function formatRecordDate(?string $value): string
@@ -45,11 +46,7 @@ function formatRecordDate(?string $value): string
         return t('not_available');
     }
 
-    if (currentLanguage() === 'ar') {
-        return date('Y/m/d H:i', $timestamp);
-    }
-
-    return date('d M Y, h:i A', $timestamp);
+    return formatLocalizedDate($timestamp, true);
 }
 
 function getStatusLabel(string $status): string
@@ -73,6 +70,9 @@ function getCourseStateLabel(string $state): string
     };
 }
 
+/* Records stuck in processing (crashed or timed-out worker) become retryable. */
+expireStaleAnalyses($pdo, $userId);
+
 $errors = [];
 
 $successMessage = $_SESSION['academic_record_success'] ?? null;
@@ -81,7 +81,15 @@ unset($_SESSION['academic_record_success']);
 $autoAnalyzeRecordId =
     (int) ($_SESSION['academic_record_auto_analyze_id'] ?? 0);
 
-unset($_SESSION['academic_record_auto_analyze_id']);
+$autoAnalyzeSemester =
+    ($_SESSION['academic_record_auto_analyze_semester'] ?? 'regular') === 'summer'
+        ? 'summer'
+        : 'regular';
+
+unset(
+    $_SESSION['academic_record_auto_analyze_id'],
+    $_SESSION['academic_record_auto_analyze_semester']
+);
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $submittedToken = $_POST['csrf_token'] ?? '';
@@ -95,6 +103,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
     $action = $_POST['action'] ?? 'upload_record';
     $uploadedFile = $_FILES['academic_record'] ?? null;
+
+    $targetSemester = $_POST['target_semester'] ?? 'regular';
+
+    if (!in_array($targetSemester, ['regular', 'summer'], true)) {
+        $targetSemester = 'regular';
+    }
 
     if (!$errors && $action === 'upload_record') {
         if (!is_array($uploadedFile)) {
@@ -263,7 +277,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             file_size,
                             record_language,
                             status,
-                            is_current
+                            is_current,
+                            target_semester
                         ) VALUES (
                             :user_id,
                             :original_name,
@@ -274,7 +289,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             :file_size,
                             :record_language,
                             :status,
-                            :is_current
+                            :is_current,
+                            :target_semester
                         )'
                     );
 
@@ -289,11 +305,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         'record_language' => 'en',
                         'status' => 'uploaded',
                         'is_current' => 0,
+                        'target_semester' => $targetSemester,
                     ]);
 
                     $recordId = (int) $pdo->lastInsertId();
 
+                    logActivity(
+                        $pdo,
+                        'RECORD_UPLOAD',
+                        $userId,
+                        'record=' . $recordId . ' size=' . $fileSize
+                    );
+
                     $_SESSION['academic_record_auto_analyze_id'] = $recordId;
+                    $_SESSION['academic_record_auto_analyze_semester'] = $targetSemester;
                     $_SESSION['academic_record_success'] =
                         t('record_success_uploaded_starting');
 
@@ -446,20 +471,39 @@ require_once __DIR__ . '/../includes/sidebar.php';
                         >
                         <input type="hidden" name="action" value="upload_record">
 
+                        <fieldset class="record-semester-choice">
+                            <legend><?= escape(t('record_plan_for')) ?></legend>
+
+                            <label>
+                                <input type="radio" name="target_semester" value="regular" checked>
+                                <span><?= escape(t('semester_regular')) ?></span>
+                            </label>
+
+                            <label>
+                                <input type="radio" name="target_semester" value="summer">
+                                <span><?= escape(t('semester_summer')) ?></span>
+                            </label>
+                        </fieldset>
+
                         <label
                             class="record-file-control"
                             for="academic_record"
                         >
-                            <span><?= escape(t('record_choose_file')) ?></span>
+                            <span data-upload-label><?= escape(t('record_choose_file')) ?></span>
                             <input
                                 type="file"
                                 id="academic_record"
                                 name="academic_record"
                                 accept=".pdf,application/pdf"
-                                onchange="this.form.requestSubmit()"
+                                data-upload-input
                                 required
                             >
                         </label>
+
+                        <p class="record-upload-progress" data-upload-progress hidden>
+                            <span class="record-spinner" aria-hidden="true"></span>
+                            <?= escape(t('record_uploading')) ?>
+                        </p>
                     </form>
                 </div>
             </section>
@@ -503,13 +547,23 @@ require_once __DIR__ . '/../includes/sidebar.php';
                         <div>
                             <dt><?= escape(t('record_last_academic_semester')) ?></dt>
                             <dd>
-                                <?= escape($currentRecord['academic_semester'] ?? t('not_available')) ?>
+                                <?php if (!empty($currentRecord['academic_semester'])): ?>
+                                    <bdi lang="en"><?= escape($currentRecord['academic_semester']) ?></bdi>
+                                <?php else: ?>
+                                    <?= escape(t('not_available')) ?>
+                                <?php endif; ?>
                                 <small><?= escape(t('record_as_read_pdf')) ?></small>
                             </dd>
                         </div>
                         <div>
                             <dt><?= escape(t('record_level')) ?></dt>
-                            <dd><?= escape($currentRecord['student_level'] ?? t('not_available')) ?></dd>
+                            <dd>
+                                <?php if (!empty($currentRecord['student_level'])): ?>
+                                    <bdi lang="en"><?= escape($currentRecord['student_level']) ?></bdi>
+                                <?php else: ?>
+                                    <?= escape(t('not_available')) ?>
+                                <?php endif; ?>
+                            </dd>
                         </div>
                         <div>
                             <dt><?= escape(t('record_gpa')) ?></dt>
@@ -564,7 +618,7 @@ require_once __DIR__ . '/../includes/sidebar.php';
                     </div>
                 <?php else: ?>
                     <div class="record-table-wrap">
-                        <table class="record-data-table">
+                        <table class="record-data-table" data-collapsible-table data-visible-rows="10">
                             <thead>
                                 <tr>
                                     <th><?= escape(t('record_code')) ?></th>
@@ -601,6 +655,20 @@ require_once __DIR__ . '/../includes/sidebar.php';
                             </tbody>
                         </table>
                     </div>
+
+                    <?php if (count($currentCourses) > 10): ?>
+                        <button
+                            type="button"
+                            class="record-show-all"
+                            data-collapse-toggle
+                            data-label-more="<?= escape(sprintf(t('record_show_all_courses'), count($currentCourses))) ?>"
+                            data-label-less="<?= escape(t('record_show_fewer_courses')) ?>"
+                            aria-expanded="false"
+                            hidden
+                        >
+                            <?= escape(sprintf(t('record_show_all_courses'), count($currentCourses))) ?>
+                        </button>
+                    <?php endif; ?>
                 <?php endif; ?>
             </section>
 
@@ -635,13 +703,9 @@ require_once __DIR__ . '/../includes/sidebar.php';
                                         <td class="record-history-file record-data-ltr">
                                             <?= escape($record['original_name']) ?>
 
-                                            <?php if (
-                                                $record['status'] === 'failed'
-                                                && !empty($record['analysis_error'])
-                                            ): ?>
-                                                <small class="record-history-error" dir="auto">
-                                                    <?= escape(t('record_analysis_error')) ?>:
-                                                    <?= escape($record['analysis_error']) ?>
+                                            <?php if ($record['status'] === 'failed'): ?>
+                                                <small class="record-history-error">
+                                                    <?= escape(t('record_analysis_failed_retry')) ?>
                                                 </small>
                                             <?php endif; ?>
                                         </td>
@@ -668,11 +732,16 @@ require_once __DIR__ . '/../includes/sidebar.php';
                                             <?php endif; ?>
                                         </td>
                                         <td>
-                                            <?php if ($record['status'] === 'failed'): ?>
+                                            <?php if (in_array($record['status'], ['failed', 'uploaded'], true)): ?>
                                                 <form
                                                     method="POST"
                                                     class="retry-analysis-form"
                                                 >
+                                                    <input
+                                                        type="hidden"
+                                                        name="target_semester"
+                                                        value="<?= escape($record['target_semester'] ?? 'regular') ?>"
+                                                    >
                                                     <input
                                                         type="hidden"
                                                         name="csrf_token"
@@ -692,7 +761,11 @@ require_once __DIR__ . '/../includes/sidebar.php';
                                                         type="submit"
                                                         class="record-retry-button"
                                                     >
-                                                        <?= escape(t('record_retry')) ?>
+                                                        <?= escape(
+                                                            $record['status'] === 'uploaded'
+                                                                ? t('record_analyze_now')
+                                                                : t('record_retry')
+                                                        ) ?>
                                                     </button>
                                                 </form>
                                             <?php else: ?>
@@ -726,6 +799,11 @@ require_once __DIR__ . '/../includes/sidebar.php';
             type="hidden"
             name="record_id"
             value="<?= $autoAnalyzeRecordId ?>"
+        >
+        <input
+            type="hidden"
+            name="target_semester"
+            value="<?= escape($autoAnalyzeSemester) ?>"
         >
     </form>
 <?php endif; ?>
@@ -833,6 +911,69 @@ document.addEventListener('DOMContentLoaded', function () {
         window.setTimeout(function () {
             window.location.reload();
         }, 5000);
+    }
+
+    /* Course table: first rows only, until the student asks for all. */
+    const collapsibleTable = document.querySelector('[data-collapsible-table]');
+    const collapseToggle = document.querySelector('[data-collapse-toggle]');
+
+    if (collapsibleTable && collapseToggle) {
+        const visibleRows = parseInt(collapsibleTable.dataset.visibleRows, 10) || 10;
+        const rows = Array.from(collapsibleTable.tBodies[0].rows);
+        let expanded = false;
+
+        const render = function () {
+            rows.forEach(function (row, index) {
+                row.hidden = !expanded && index >= visibleRows;
+            });
+
+            collapseToggle.textContent = expanded
+                ? collapseToggle.dataset.labelLess
+                : collapseToggle.dataset.labelMore;
+            collapseToggle.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+        };
+
+        collapseToggle.hidden = false;
+        collapseToggle.addEventListener('click', function () {
+            expanded = !expanded;
+            render();
+
+            if (!expanded) {
+                collapsibleTable.scrollIntoView({ block: 'start', behavior: 'smooth' });
+            }
+        });
+
+        render();
+    }
+
+    const uploadInput = document.querySelector('[data-upload-input]');
+
+    if (uploadInput) {
+        uploadInput.addEventListener('change', function () {
+            if (!uploadInput.files || uploadInput.files.length === 0) {
+                return;
+            }
+
+            const form = uploadInput.form;
+            const progress = form.querySelector('[data-upload-progress]');
+            const label = form.querySelector('[data-upload-label]');
+
+            if (progress) {
+                progress.hidden = false;
+            }
+
+            if (label) {
+                label.textContent = uploadInput.files[0].name;
+            }
+
+            form.classList.add('is-uploading');
+
+            if (typeof form.requestSubmit === 'function') {
+                form.requestSubmit();
+            } else {
+                form.submit();
+            }
+        });
     }
 
     const autoAnalysisForm = document.getElementById('auto-analysis-form');

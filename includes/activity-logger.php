@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+require_once __DIR__ . '/../config/env.php';
+
 function logActivity(
     PDO $pdo,
     string $eventType,
@@ -44,27 +46,25 @@ function getClientIpAddress(): ?string
 {
     $candidates = [];
 
-    if (!empty($_SERVER['HTTP_X_FORWARDED_FOR'])) {
-        $forwarded = explode(
-            ',',
-            (string) $_SERVER['HTTP_X_FORWARDED_FOR']
-        );
+    /*
+     * Forwarded headers are set by the client and can be forged, so they
+     * are only trusted when Masar runs behind a reverse proxy the owner
+     * controls (TRUST_PROXY=1 in .env).
+     */
+    if (function_exists('env') && env('TRUST_PROXY', '0') === '1') {
+        if (!empty($_SERVER['HTTP_X_FORWARDED_FOR'])) {
+            foreach (explode(',', (string) $_SERVER['HTTP_X_FORWARDED_FOR']) as $ip) {
+                $candidates[] = trim($ip);
+            }
+        }
 
-        foreach ($forwarded as $ip) {
-            $candidates[] = trim($ip);
+        if (!empty($_SERVER['HTTP_X_REAL_IP'])) {
+            $candidates[] = trim((string) $_SERVER['HTTP_X_REAL_IP']);
         }
     }
 
-    if (!empty($_SERVER['HTTP_X_REAL_IP'])) {
-        $candidates[] = trim(
-            (string) $_SERVER['HTTP_X_REAL_IP']
-        );
-    }
-
     if (!empty($_SERVER['REMOTE_ADDR'])) {
-        $candidates[] = trim(
-            (string) $_SERVER['REMOTE_ADDR']
-        );
+        $candidates[] = trim((string) $_SERVER['REMOTE_ADDR']);
     }
 
     foreach ($candidates as $ip) {
@@ -74,4 +74,25 @@ function getClientIpAddress(): ?string
     }
 
     return null;
+}
+
+/**
+ * Failed logins from this IP in the last 15 minutes.
+ */
+function recentFailedLogins(PDO $pdo, ?string $ipAddress): int
+{
+    if ($ipAddress === null) {
+        return 0;
+    }
+
+    $statement = $pdo->prepare(
+        "SELECT COUNT(*)
+         FROM activity_logs
+         WHERE ip_address = :ip
+           AND event_type = 'LOGIN_FAILED'
+           AND created_at > NOW() - INTERVAL 15 MINUTE"
+    );
+    $statement->execute(['ip' => $ipAddress]);
+
+    return (int) $statement->fetchColumn();
 }

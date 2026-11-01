@@ -6,37 +6,37 @@ require_once __DIR__ . '/../includes/auth_check.php';
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../includes/language.php';
 require_once __DIR__ . '/../includes/academic-record-analyzer.php';
+require_once __DIR__ . '/../includes/activity-logger.php';
+require_once __DIR__ . '/../includes/system-alerts.php';
 
 header('Content-Type: application/json; charset=UTF-8');
 
 /*
- * The analysis may continue even if the student leaves the page.
- * This is useful for the current Masar prototype where Gemini
- * analysis can take more than one minute.
+ * The analysis continues even if the student leaves the page:
+ * Gemini analysis can take more than a minute.
  */
 ignore_user_abort(true);
-set_time_limit(180);
+set_time_limit(300);
 
-if (($_SESSION['role'] ?? '') !== 'student') {
-    http_response_code(403);
-
-    echo json_encode([
-        'success' => false,
-        'message' => t('record_api_unauthorized'),
-    ]);
-
+function respond(int $statusCode, array $body): never
+{
+    http_response_code($statusCode);
+    echo json_encode($body, JSON_UNESCAPED_UNICODE);
     exit;
 }
 
-if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-    http_response_code(405);
+if (($_SESSION['role'] ?? '') !== 'student') {
+    respond(403, [
+        'success' => false,
+        'message' => t('record_api_unauthorized'),
+    ]);
+}
 
-    echo json_encode([
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+    respond(405, [
         'success' => false,
         'message' => t('record_api_post_only'),
     ]);
-
-    exit;
 }
 
 $submittedToken = $_POST['csrf_token'] ?? '';
@@ -46,40 +46,35 @@ if (
     || empty($_SESSION['csrf_token'])
     || !hash_equals($_SESSION['csrf_token'], $submittedToken)
 ) {
-    http_response_code(403);
-
-    echo json_encode([
+    respond(403, [
         'success' => false,
         'message' => t('record_api_invalid_token'),
     ]);
-
-    exit;
 }
 
 $userId = (int) ($_SESSION['user_id'] ?? 0);
 $recordId = (int) ($_POST['record_id'] ?? 0);
+$isReplan = ($_POST['replan'] ?? '') === '1';
+
+$targetSemester = $_POST['target_semester'] ?? 'regular';
+
+if (!in_array($targetSemester, ['regular', 'summer'], true)) {
+    $targetSemester = 'regular';
+}
 
 /*
- * Release the PHP session lock before the long AI request.
- * This allows the student to continue browsing Masar
- * while the academic record is being analyzed.
+ * Release the PHP session lock before the long AI request so the
+ * student can keep browsing Masar while the record is analysed.
  */
 session_write_close();
 
 if ($recordId <= 0) {
-    http_response_code(422);
-
-    echo json_encode([
+    respond(422, [
         'success' => false,
         'message' => t('record_api_invalid_record'),
     ]);
-
-    exit;
 }
 
-/*
- * Make sure the record belongs to the logged-in student.
- */
 $recordStatement = $pdo->prepare(
     'SELECT id, file_path, status
      FROM academic_records
@@ -96,86 +91,76 @@ $recordStatement->execute([
 $record = $recordStatement->fetch();
 
 if (!$record) {
-    http_response_code(404);
-
-    echo json_encode([
+    respond(404, [
         'success' => false,
         'message' => t('record_api_not_found'),
     ]);
-
-    exit;
-}
-
-/*
- * Only a newly uploaded record or a previously failed record
- * may start a new analysis.
- */
-if (!in_array($record['status'], ['uploaded', 'failed'], true)) {
-    http_response_code(409);
-
-    echo json_encode([
-        'success' => false,
-        'message' => t('record_api_cannot_analyze'),
-        'status' => $record['status'],
-    ]);
-
-    exit;
 }
 
 $pdfPath =
     dirname(__DIR__)
     . DIRECTORY_SEPARATOR
-    . str_replace(
-        '/',
-        DIRECTORY_SEPARATOR,
-        $record['file_path']
-    );
+    . str_replace('/', DIRECTORY_SEPARATOR, $record['file_path']);
 
 if (!is_file($pdfPath)) {
-    markAnalysisFailed(
-        $pdo,
-        $recordId,
-        'The uploaded academic record file could not be found.'
-    );
+    if ($record['status'] !== 'analyzed') {
+        markAnalysisFailed(
+            $pdo,
+            $recordId,
+            'The uploaded academic record file could not be found.'
+        );
+    }
 
-    http_response_code(404);
-
-    echo json_encode([
+    respond(404, [
         'success' => false,
         'message' => t('record_api_file_missing'),
     ]);
-
-    exit;
 }
 
-try {
-    /*
-     * Set Processing before the long Gemini request starts so the UI
-     * can immediately reflect that analysis is running.
-     */
-    $processingStatement = $pdo->prepare(
-        'UPDATE academic_records
-         SET status = :status,
-             analysis_error = NULL,
-             updated_at = CURRENT_TIMESTAMP
-         WHERE id = :id
-           AND user_id = :user_id'
-    );
+/*
+ * Atomic claim: only one request can move the record to processing.
+ * A re-plan may claim an analysed record; a normal request may not.
+ */
+$previousStatus = claimRecordForAnalysis(
+    $pdo,
+    $recordId,
+    $userId,
+    $targetSemester,
+    $isReplan
+);
 
-    $processingStatement->execute([
-        'status' => 'processing',
-        'id' => $recordId,
-        'user_id' => $userId,
+if ($previousStatus === null) {
+    respond(409, [
+        'success' => false,
+        'message' => t('record_api_cannot_analyze'),
+        'status' => $record['status'],
     ]);
+}
 
+logActivity(
+    $pdo,
+    'ANALYSIS_STARTED',
+    $userId,
+    sprintf('record=%d semester=%s%s', $recordId, $targetSemester, $isReplan ? ' replan' : '')
+);
+
+try {
     analyzeAcademicRecord(
         $pdo,
         $recordId,
         $userId,
-        $pdfPath
+        $pdfPath,
+        $targetSemester
     );
 
-    echo json_encode([
+    logActivity(
+        $pdo,
+        'ANALYSIS_SUCCESS',
+        $userId,
+        'record=' . $recordId
+    );
+
+    respond(200, [
         'success' => true,
         'status' => 'analyzed',
         'message' => t('record_api_success'),
@@ -184,14 +169,34 @@ try {
     markAnalysisFailed(
         $pdo,
         $recordId,
-        $exception->getMessage()
+        $exception->getMessage(),
+        $previousStatus
     );
 
-    http_response_code(500);
+    logActivity(
+        $pdo,
+        'ANALYSIS_FAILED',
+        $userId,
+        'record=' . $recordId . ': ' . $exception->getMessage()
+    );
 
-    echo json_encode([
+    $messageKey = analysisFailureMessageKey($exception);
+
+    raiseSystemAlert(
+        $pdo,
+        $messageKey === 'record_error_ai_unavailable' || $messageKey === 'record_error_ai_busy'
+            ? 'AI_SERVICE_ERROR'
+            : 'ANALYSIS_FAILED',
+        $messageKey === 'record_error_ai_unavailable' ? 'critical' : 'warning',
+        'Record #' . $recordId . ': ' . $exception->getMessage(),
+        $messageKey === 'record_error_ai_unavailable' || $messageKey === 'record_error_ai_busy'
+            ? null
+            : $userId
+    );
+
+    respond(500, [
         'success' => false,
-        'status' => 'failed',
-        'message' => t('record_error_analysis_failed'),
+        'status' => $previousStatus === 'analyzed' ? 'analyzed' : 'failed',
+        'message' => t($messageKey),
     ]);
 }
