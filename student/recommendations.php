@@ -48,17 +48,25 @@ if ($record) {
     $translationKey = 'reason_translation_failed_' . (int) $record['id'];
 
     if (currentLanguage() === 'ar' && empty($_SESSION[$translationKey])) {
-        ensureArabicReasons($pdo, (int) $record['id']);
-
-        $checkStatement = $pdo->prepare(
+        $pendingStatement = $pdo->prepare(
             "SELECT COUNT(*) FROM record_recommendations
              WHERE record_id = :record_id AND is_accepted = 1
                AND reason <> '' AND (reason_ar IS NULL OR reason_ar = '')"
         );
-        $checkStatement->execute(['record_id' => $record['id']]);
+        $pendingStatement->execute(['record_id' => $record['id']]);
 
-        if ((int) $checkStatement->fetchColumn() > 0) {
+        if ((int) $pendingStatement->fetchColumn() > 0) {
+            /*
+             * Mark as attempted and release the session lock before the
+             * AI call, so other tabs never wait on this request. A
+             * successful translation is stored, so the flag only matters
+             * when the attempt fails.
+             */
             $_SESSION[$translationKey] = 1;
+            csrfToken();
+            session_write_close();
+
+            ensureArabicReasons($pdo, (int) $record['id']);
         }
     }
 
