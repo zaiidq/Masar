@@ -278,9 +278,12 @@ require_once __DIR__ . '/../includes/admin-sidebar.php';
                                         )) ?>
                                     </small>
                                     <?php if ($user['latest_status'] === 'failed' && !empty($user['latest_error'])): ?>
-                                        <small class="admin-users-error" dir="ltr">
-                                            <?= adminEscape($user['latest_error']) ?>
-                                        </small>
+                                        <details class="admin-users-error-details">
+                                            <summary><?= adminEscape(t('admin_users_error_details')) ?></summary>
+                                            <small class="admin-users-error" dir="ltr">
+                                                <?= adminEscape($user['latest_error']) ?>
+                                            </small>
+                                        </details>
                                     <?php endif; ?>
                                 <?php else: ?>
                                     —

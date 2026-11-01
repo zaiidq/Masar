@@ -29,3 +29,30 @@ Options -Indexes
     RewriteEngine On
     RewriteRule (^|/)\.git(/|$) - [F,L]
 </IfModule>
+
+# ------------------------------------------------------------
+#  Performance: compress text responses and let browsers keep
+#  static assets. CSS/JS URLs carry ?v=N, so a changed file is
+#  fetched again as soon as its version number changes.
+#  (Enable once on Ubuntu: sudo a2enmod deflate expires headers)
+# ------------------------------------------------------------
+
+<IfModule mod_deflate.c>
+    AddOutputFilterByType DEFLATE text/html text/plain text/css application/javascript text/javascript application/json image/svg+xml
+</IfModule>
+
+<IfModule mod_expires.c>
+    ExpiresActive On
+    ExpiresByType text/css "access plus 30 days"
+    ExpiresByType application/javascript "access plus 30 days"
+    ExpiresByType text/javascript "access plus 30 days"
+    ExpiresByType image/svg+xml "access plus 30 days"
+    ExpiresByType image/png "access plus 30 days"
+    ExpiresByType image/jpeg "access plus 30 days"
+</IfModule>
+
+<IfModule mod_headers.c>
+    <FilesMatch "\.(css|js|svg|png|jpe?g|woff2?)$">
+        Header set Cache-Control "public, max-age=2592000"
+    </FilesMatch>
+</IfModule>

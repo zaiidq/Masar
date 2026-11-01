@@ -529,4 +529,13 @@ return [
     /* Record page and reasons */
     'record_show_all_courses' => 'Show all %d courses',
     'record_show_fewer_courses' => 'Show fewer courses',
+
+    /* Bilingual links */
+    'admin_links_english_version' => 'English version (required)',
+    'admin_links_arabic_version' => 'Arabic version',
+    'admin_links_arabic_help' => 'Shown to students using the Arabic interface. Leave a field empty to show the English text instead.',
+    'admin_links_no_arabic' => 'No Arabic title yet',
+
+    /* Admin users fix */
+    'admin_users_error_details' => 'Error details',
 ];

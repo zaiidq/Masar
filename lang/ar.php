@@ -529,4 +529,13 @@ return [
     /* Record page and reasons */
     'record_show_all_courses' => 'عرض جميع المواد (%d)',
     'record_show_fewer_courses' => 'عرض مواد أقل',
+
+    /* Bilingual links */
+    'admin_links_english_version' => 'النسخة الإنجليزية (إجبارية)',
+    'admin_links_arabic_version' => 'النسخة العربية',
+    'admin_links_arabic_help' => 'تظهر للطلاب الذين يستخدمون الواجهة العربية. اترك الحقل فارغاً لعرض النص الإنجليزي بدلاً منه.',
+    'admin_links_no_arabic' => 'لا يوجد عنوان عربي بعد',
+
+    /* Admin users fix */
+    'admin_users_error_details' => 'تفاصيل الخطأ',
 ];

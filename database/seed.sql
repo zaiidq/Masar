@@ -74,17 +74,30 @@ ON DUPLICATE KEY UPDATE `name_ar` = VALUES(`name_ar`);
 -- ------------------------------------------------------------
 
 INSERT IGNORE INTO `university_links`
-    (`id`, `title`, `url`, `description`, `category`, `is_active`, `sort_order`)
+    (`id`, `title`, `url`, `description`, `category`,
+     `title_ar`, `description_ar`, `category_ar`, `is_active`, `sort_order`)
 VALUES
 (1, 'Middle East University', 'https://www.meu.edu.jo/',
     'Visit the official university website.',
-    'University Services', 1, 1),
-(2, 'Edu Gate - بوابة الطالب', 'https://reg.meu.edu.jo/',
+    'University Services',
+    'جامعة الشرق الأوسط',
+    'زيارة الموقع الرسمي للجامعة.',
+    'خدمات جامعية', 1, 1),
+(2, 'Edu Gate', 'https://reg.meu.edu.jo/',
+    'Student portal for academic services, registration, grades and university records.',
+    'University Services',
+    'بوابة الطالب',
     'بوابة الطالب للوصول إلى الخدمات الأكاديمية، التسجيل، العلامات، والبيانات الجامعية.',
-    'University Services - خدمات جامعية', 1, 2),
-(3, 'E-learning - التعلم الإلكتروني', 'https://elearning.meu.edu.jo/',
+    'خدمات جامعية', 1, 2),
+(3, 'E-learning', 'https://elearning.meu.edu.jo/',
+    'Course materials, assignments, quizzes and files shared by instructors.',
+    'University Services',
+    'التعلم الإلكتروني',
     'الوصول إلى المواد التعليمية والواجبات والاختبارات والملفات المرفقة من الكادر التعليمي عبر منصة التعلم الإلكتروني.',
-    'University Services - خدمات جامعية', 1, 3),
-(4, 'Microsoft Teams - مايكروسوفت تيمز', 'https://teams.microsoft.com/v2/',
+    'خدمات جامعية', 1, 3),
+(4, 'Microsoft Teams', 'https://teams.microsoft.com/v2/',
+    'Online lectures and communication with instructors and classmates.',
+    'University Services',
+    'مايكروسوفت تيمز',
     'الوصول إلى محاضرات الأونلاين والتواصل مع المدرسين والطلاب عبر Microsoft Teams.',
-    'University Services - خدمات جامعية', 1, 4);
+    'خدمات جامعية', 1, 4);

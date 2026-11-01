@@ -17,13 +17,33 @@ $stmt = $pdo->query(
         title,
         url,
         description,
-        category
+        category,
+        title_ar,
+        description_ar,
+        category_ar
      FROM university_links
      WHERE is_active = 1
      ORDER BY sort_order ASC, title ASC'
 );
 
 $links = $stmt->fetchAll();
+
+/*
+ * Show each link in the interface language; a missing Arabic field falls
+ * back to the English one so nothing is ever blank.
+ */
+$isArabic = currentLanguage() === 'ar';
+
+foreach ($links as &$link) {
+    foreach (['title', 'description', 'category'] as $field) {
+        $arabicValue = trim((string) ($link[$field . '_ar'] ?? ''));
+
+        if ($isArabic && $arabicValue !== '') {
+            $link[$field] = $arabicValue;
+        }
+    }
+}
+unset($link);
 
 $linksByCategory = [];
 

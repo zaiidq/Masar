@@ -24,6 +24,9 @@ $title = '';
 $url = '';
 $description = '';
 $category = '';
+$titleAr = '';
+$descriptionAr = '';
+$categoryAr = '';
 $sortOrder = 0;
 
 /*
@@ -46,6 +49,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
                 url,
                 description,
                 category,
+                title_ar,
+                description_ar,
+                category_ar,
                 sort_order
              FROM university_links
              WHERE id = :id
@@ -65,6 +71,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET') {
             $url = $editingLink['url'];
             $description = $editingLink['description'] ?? '';
             $category = $editingLink['category'] ?? '';
+            $titleAr = $editingLink['title_ar'] ?? '';
+            $descriptionAr = $editingLink['description_ar'] ?? '';
+            $categoryAr = $editingLink['category_ar'] ?? '';
             $sortOrder = (int) $editingLink['sort_order'];
         } else {
             $errors[] = t('admin_links_error_not_found');
@@ -93,6 +102,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $url = trim((string) ($_POST['url'] ?? ''));
         $description = trim((string) ($_POST['description'] ?? ''));
         $category = trim((string) ($_POST['category'] ?? ''));
+        $titleAr = trim((string) ($_POST['title_ar'] ?? ''));
+        $descriptionAr = trim((string) ($_POST['description_ar'] ?? ''));
+        $categoryAr = trim((string) ($_POST['category_ar'] ?? ''));
 
         $sortOrderResult = filter_var(
             $_POST['sort_order'] ?? null,
@@ -134,6 +146,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         }
 
+        if (mb_strlen($titleAr) > 120) {
+            $errors[] = t('admin_links_error_title_long');
+        }
+
+        if (mb_strlen($descriptionAr) > 255) {
+            $errors[] = t('admin_links_error_description_long');
+        }
+
+        if (mb_strlen($categoryAr) > 80) {
+            $errors[] = t('admin_links_error_category_long');
+        }
+
         if (mb_strlen($description) > 255) {
             $errors[] = t('admin_links_error_description_long');
         }
@@ -159,6 +183,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         url,
                         description,
                         category,
+                        title_ar,
+                        description_ar,
+                        category_ar,
                         sort_order,
                         is_active
                     ) VALUES (
@@ -166,6 +193,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         :url,
                         :description,
                         :category,
+                        :title_ar,
+                        :description_ar,
+                        :category_ar,
                         :sort_order,
                         1
                     )'
@@ -180,6 +210,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     'category' => $category !== ''
                         ? $category
                         : null,
+                    'title_ar' => $titleAr !== '' ? $titleAr : null,
+                    'description_ar' => $descriptionAr !== '' ? $descriptionAr : null,
+                    'category_ar' => $categoryAr !== '' ? $categoryAr : null,
                     'sort_order' => $sortOrder,
                 ]);
 
@@ -196,6 +229,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         url = :url,
                         description = :description,
                         category = :category,
+                        title_ar = :title_ar,
+                        description_ar = :description_ar,
+                        category_ar = :category_ar,
                         sort_order = :sort_order
                      WHERE id = :id'
                 );
@@ -209,6 +245,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     'category' => $category !== ''
                         ? $category
                         : null,
+                    'title_ar' => $titleAr !== '' ? $titleAr : null,
+                    'description_ar' => $descriptionAr !== '' ? $descriptionAr : null,
+                    'category_ar' => $categoryAr !== '' ? $categoryAr : null,
                     'sort_order' => $sortOrder,
                     'id' => $editingLinkId,
                 ]);
@@ -225,6 +264,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $url = '';
             $description = '';
             $category = '';
+            $titleAr = '';
+            $descriptionAr = '';
+            $categoryAr = '';
             $sortOrder = 0;
         }
     }
@@ -292,6 +334,9 @@ $stmt = $pdo->query(
         url,
         description,
         category,
+        title_ar,
+        description_ar,
+        category_ar,
         is_active,
         sort_order
      FROM university_links
@@ -411,32 +456,6 @@ require_once __DIR__ . '/../includes/admin-sidebar.php';
                 <?php endif; ?>
 
                 <div class="admin-field-new">
-                    <label for="title"><?= htmlspecialchars(t('admin_links_field_title')) ?></label>
-
-                    <input
-                        type="text"
-                        id="title"
-                        name="title"
-                        value="<?= htmlspecialchars($title) ?>"
-                        maxlength="120"
-                        required
-                    >
-                </div>
-
-                <div class="admin-field-new">
-                    <label for="category"><?= htmlspecialchars(t('admin_links_field_category')) ?></label>
-
-                    <input
-                        type="text"
-                        id="category"
-                        name="category"
-                        value="<?= htmlspecialchars($category) ?>"
-                        maxlength="80"
-                        placeholder="<?= htmlspecialchars(t('admin_links_category_placeholder')) ?>"
-                    >
-                </div>
-
-                <div class="admin-field-new">
                     <label for="url"><?= htmlspecialchars(t('admin_links_field_url')) ?></label>
 
                     <input
@@ -450,16 +469,95 @@ require_once __DIR__ . '/../includes/admin-sidebar.php';
                     >
                 </div>
 
-                <div class="admin-field-new">
-                    <label for="description"><?= htmlspecialchars(t('admin_links_field_description')) ?></label>
+                <fieldset class="admin-lang-fieldset">
+                    <legend><?= htmlspecialchars(t('admin_links_english_version')) ?></legend>
 
-                    <textarea
-                        id="description"
-                        name="description"
-                        maxlength="255"
-                        rows="3"
-                    ><?= htmlspecialchars($description) ?></textarea>
-                </div>
+                    <div class="admin-field-new">
+                        <label for="title"><?= htmlspecialchars(t('admin_links_field_title')) ?></label>
+                        <input
+                            type="text"
+                            id="title"
+                            name="title"
+                            lang="en"
+                            dir="ltr"
+                            value="<?= htmlspecialchars($title) ?>"
+                            maxlength="120"
+                            placeholder="Edu Gate"
+                            required
+                        >
+                    </div>
+
+                    <div class="admin-field-new">
+                        <label for="category"><?= htmlspecialchars(t('admin_links_field_category')) ?></label>
+                        <input
+                            type="text"
+                            id="category"
+                            name="category"
+                            lang="en"
+                            dir="ltr"
+                            value="<?= htmlspecialchars($category) ?>"
+                            maxlength="80"
+                            placeholder="University Services"
+                        >
+                    </div>
+
+                    <div class="admin-field-new">
+                        <label for="description"><?= htmlspecialchars(t('admin_links_field_description')) ?></label>
+                        <textarea
+                            id="description"
+                            name="description"
+                            lang="en"
+                            dir="ltr"
+                            maxlength="255"
+                            rows="3"
+                        ><?= htmlspecialchars($description) ?></textarea>
+                    </div>
+                </fieldset>
+
+                <fieldset class="admin-lang-fieldset admin-lang-fieldset--ar">
+                    <legend><?= htmlspecialchars(t('admin_links_arabic_version')) ?></legend>
+                    <p class="admin-lang-fieldset__help"><?= htmlspecialchars(t('admin_links_arabic_help')) ?></p>
+
+                    <div class="admin-field-new">
+                        <label for="title_ar"><?= htmlspecialchars(t('admin_links_field_title')) ?></label>
+                        <input
+                            type="text"
+                            id="title_ar"
+                            name="title_ar"
+                            lang="ar"
+                            dir="rtl"
+                            value="<?= htmlspecialchars($titleAr) ?>"
+                            maxlength="120"
+                            placeholder="بوابة الطالب"
+                        >
+                    </div>
+
+                    <div class="admin-field-new">
+                        <label for="category_ar"><?= htmlspecialchars(t('admin_links_field_category')) ?></label>
+                        <input
+                            type="text"
+                            id="category_ar"
+                            name="category_ar"
+                            lang="ar"
+                            dir="rtl"
+                            value="<?= htmlspecialchars($categoryAr) ?>"
+                            maxlength="80"
+                            placeholder="خدمات جامعية"
+                        >
+                    </div>
+
+                    <div class="admin-field-new">
+                        <label for="description_ar"><?= htmlspecialchars(t('admin_links_field_description')) ?></label>
+                        <textarea
+                            id="description_ar"
+                            name="description_ar"
+                            lang="ar"
+                            dir="rtl"
+                            maxlength="255"
+                            rows="3"
+                        ><?= htmlspecialchars($descriptionAr) ?></textarea>
+                    </div>
+                </fieldset>
 
                 <div class="admin-field-new admin-field-new--compact">
                     <label for="sort_order"><?= htmlspecialchars(t('admin_links_field_order')) ?></label>
@@ -537,14 +635,23 @@ require_once __DIR__ . '/../includes/admin-sidebar.php';
                                                 <span aria-hidden="true">↗</span>
                                             </a>
 
+                                            <?php if (!empty($link['title_ar'])): ?>
+                                                <span class="admin-link-ar" lang="ar" dir="rtl"><?= htmlspecialchars($link['title_ar']) ?></span>
+                                            <?php else: ?>
+                                                <small class="admin-link-missing"><?= htmlspecialchars(t('admin_links_no_arabic')) ?></small>
+                                            <?php endif; ?>
+
                                             <?php if (!empty($link['description'])): ?>
-                                                <small><?= htmlspecialchars($link['description']) ?></small>
+                                                <small><bdi><?= htmlspecialchars($link['description']) ?></bdi></small>
                                             <?php endif; ?>
                                         </div>
                                     </td>
 
                                     <td data-label="<?= htmlspecialchars(t('admin_links_field_category')) ?>">
-                                        <?= htmlspecialchars($link['category'] ?? '—') ?>
+                                        <bdi><?= htmlspecialchars($link['category'] ?? '—') ?></bdi>
+                                        <?php if (!empty($link['category_ar'])): ?>
+                                            <small class="admin-link-ar" lang="ar" dir="rtl"><?= htmlspecialchars($link['category_ar']) ?></small>
+                                        <?php endif; ?>
                                     </td>
 
                                     <td

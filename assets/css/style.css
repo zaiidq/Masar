@@ -7013,3 +7013,97 @@ html[data-theme="dark"] .admin-links-empty-new img {
 .record-show-all[hidden] {
     display: none;
 }
+
+/* Admin links: English / Arabic field groups */
+.admin-lang-fieldset {
+    margin: 0 0 18px;
+    padding: 16px 16px 4px;
+    border: 1px solid var(--admin-line, var(--color-border));
+}
+
+.admin-lang-fieldset legend {
+    padding-inline: 6px;
+    color: var(--admin-forest, var(--color-primary));
+    font-size: 12px;
+    font-weight: 700;
+}
+
+.admin-lang-fieldset--ar input,
+.admin-lang-fieldset--ar textarea {
+    font-family: var(--font-ar);
+}
+
+.admin-lang-fieldset .admin-field-new {
+    margin-block-end: 14px;
+}
+
+.admin-lang-fieldset__help {
+    margin: 0 0 12px;
+    color: var(--admin-muted, var(--color-text-muted));
+    font-size: 12px;
+    line-height: 1.5;
+}
+
+.admin-link-ar {
+    display: block;
+    margin-block-start: 3px;
+    font-family: var(--font-ar);
+    font-size: 13px;
+}
+
+.admin-link-missing {
+    color: var(--admin-clay, #a85a3c) !important;
+}
+
+/* Admin users table: six columns (the links table it borrows has five) */
+.admin-users-table th:nth-child(1),
+.admin-users-table td:nth-child(1) { inline-size: 25%; }
+.admin-users-table th:nth-child(2),
+.admin-users-table td:nth-child(2) { inline-size: 11%; }
+.admin-users-table th:nth-child(3),
+.admin-users-table td:nth-child(3) { inline-size: 15%; }
+.admin-users-table th:nth-child(4),
+.admin-users-table td:nth-child(4) { inline-size: 22%; }
+.admin-users-table th:nth-child(5),
+.admin-users-table td:nth-child(5) { inline-size: 13%; }
+.admin-users-table th:nth-child(6),
+.admin-users-table td:nth-child(6) { inline-size: 14%; }
+
+/* Long emails / errors may wrap; buttons and dates never break. */
+.admin-users-table td:nth-child(1),
+.admin-users-table td:nth-child(4) {
+    overflow-wrap: anywhere;
+}
+
+.admin-users-table td.admin-table-actions-new {
+    display: table-cell;
+}
+
+.admin-users-table .admin-table-actions-new form + form {
+    margin-block-start: 8px;
+}
+
+.admin-users-table .admin-row-action-new {
+    white-space: nowrap;
+}
+
+.admin-users-error-details {
+    margin-block-start: 6px;
+    font-size: 12px;
+}
+
+.admin-users-error-details summary {
+    color: var(--admin-clay, #a85a3c);
+    cursor: pointer;
+    list-style-position: inside;
+}
+
+.admin-users-error-details[open] summary {
+    margin-block-end: 4px;
+}
+
+@media (max-width: 900px) {
+    .admin-users-table .admin-table-actions-new {
+        display: grid !important;
+    }
+}
