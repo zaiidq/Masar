@@ -128,7 +128,7 @@ $bodyClass = $isAdmin
 
     <link
         rel="stylesheet"
-        href="/masar/assets/css/style.css?v=15"
+        href="/masar/assets/css/style.css?v=16"
     >
 
     <script

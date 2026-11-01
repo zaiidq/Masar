@@ -5573,3 +5573,154 @@ html[data-theme="dark"] .student-ask-masar img {
 html[data-theme="dark"] .student-ask-masar__icon {
     color: #79B79C;
 }
+
+/* =========================================================
+   Masar v2 — semester planning, upload progress, warnings
+   ========================================================= */
+
+.record-semester-choice {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px 16px;
+    margin: 0 0 14px;
+    padding: 0;
+    border: 0;
+}
+
+.record-semester-choice legend {
+    inline-size: 100%;
+    margin-block-end: 6px;
+    color: var(--color-text-muted);
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.record-semester-choice label {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 13px;
+    cursor: pointer;
+}
+
+.record-semester-choice input {
+    accent-color: var(--color-primary);
+}
+
+.record-upload-form.is-uploading .record-file-control {
+    opacity: 0.6;
+    pointer-events: none;
+}
+
+.record-upload-progress {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 12px 0 0;
+    color: var(--color-text-muted);
+    font-size: 13px;
+}
+
+.record-upload-progress[hidden] {
+    display: none;
+}
+
+.record-spinner {
+    inline-size: 14px;
+    block-size: 14px;
+    border: 2px solid var(--color-border);
+    border-block-start-color: var(--color-primary);
+    border-radius: 50%;
+    animation: masar-spin 0.8s linear infinite;
+}
+
+@keyframes masar-spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .record-spinner {
+        animation-duration: 2.4s;
+    }
+}
+
+.recs-semester {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px 24px;
+    margin-block: 24px 8px;
+    padding: 16px 20px;
+    border: 1px solid var(--color-border);
+    border-radius: 4px;
+    background: var(--color-surface);
+}
+
+.recs-semester__info {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.recs-semester__info strong {
+    font-size: 15px;
+    font-weight: 600;
+}
+
+.recs-semester__info span {
+    color: var(--color-text-muted);
+    font-size: 13px;
+}
+
+.recs-replan-button {
+    min-block-size: 40px;
+    padding-inline: 16px;
+    border: 1px solid var(--color-primary);
+    border-radius: 3px;
+    background: transparent;
+    color: var(--color-primary);
+    font: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.recs-replan-button:hover:not(:disabled) {
+    background: var(--color-primary);
+    color: var(--color-surface);
+}
+
+.recs-replan-button:disabled {
+    opacity: 0.55;
+    cursor: wait;
+}
+
+.recs-replan-status {
+    flex-basis: 100%;
+    margin: 0;
+    color: var(--color-text-muted);
+    font-size: 13px;
+}
+
+.recs-replan-status--error {
+    color: var(--path-clay, #a85a3c);
+}
+
+.recs-warning {
+    display: block;
+    margin-block-start: 6px;
+    padding-inline-start: 8px;
+    border-inline-start: 2px solid var(--path-clay, #a85a3c);
+    color: var(--path-clay, #a85a3c);
+    font-size: 12px;
+    line-height: 1.45;
+}
+
+html[data-theme="dark"] .recs-warning,
+html[data-theme="dark"] .recs-replan-status--error {
+    color: #e3a083;
+    border-color: #e3a083;
+}

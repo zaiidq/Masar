@@ -16,13 +16,16 @@ declare(strict_types=1);
 require_once __DIR__ . '/../includes/auth_check.php';
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../includes/language.php';
+require_once __DIR__ . '/../includes/academic-record-analyzer.php';
 
-if ($_SESSION['role'] !== 'student') {
+if (($_SESSION['role'] ?? '') !== 'student') {
     header('Location: ../admin/dashboard.php');
     exit;
 }
 
 $userId = (int) $_SESSION['user_id'];
+
+expireStaleAnalyses($pdo, $userId);
 
 function e(?string $value): string
 {
@@ -63,6 +66,7 @@ $failedUpload = $failedStatement->fetch();
 $recommendations = [];
 $failedCourses = [];
 $inProgressHours = 0;
+$courseCounts = ['completed' => 0, 'in_progress' => 0, 'failed' => 0, 'remaining' => 0];
 
 if ($record) {
     $recommendationStatement = $pdo->prepare(
@@ -102,6 +106,19 @@ if ($record) {
     $hoursStatement->execute(['record_id' => $record['id']]);
 
     $inProgressHours = (int) ($hoursStatement->fetchColumn() ?: 0);
+
+    $countStatement = $pdo->prepare(
+        'SELECT completion_state, COUNT(*) AS total
+         FROM record_courses
+         WHERE record_id = :record_id
+         GROUP BY completion_state'
+    );
+
+    $countStatement->execute(['record_id' => $record['id']]);
+
+    foreach ($countStatement->fetchAll() as $row) {
+        $courseCounts[$row['completion_state']] = (int) $row['total'];
+    }
 }
 
 /*
@@ -112,6 +129,28 @@ if ($record) {
 $planHours = (int) ($record['plan_hours'] ?? 0);
 $earnedHours = (int) ($record['earned_hours'] ?? 0);
 $remainingHours = (int) ($record['remaining_hours'] ?? 0);
+$remainingKnown = $record && $record['remaining_hours'] !== null;
+
+/*
+ * UC-03: when the record did not yield a figure, say so instead of
+ * showing a misleading zero.
+ */
+$missingFigures = [];
+
+if ($record) {
+    foreach (
+        [
+            'gpa' => 'path_gpa',
+            'plan_hours' => 'path_missing_plan_hours',
+            'earned_hours' => 'path_missing_earned_hours',
+            'remaining_hours' => 'path_missing_remaining_hours',
+        ] as $column => $labelKey
+    ) {
+        if ($record[$column] === null) {
+            $missingFigures[] = t($labelKey);
+        }
+    }
+}
 
 $gpa = $record && $record['gpa'] !== null
     ? number_format((float) $record['gpa'], 2)
@@ -223,7 +262,11 @@ require_once __DIR__ . '/../includes/sidebar.php';
                 <?php endif; ?>
 
                 <h1 class="path-headline">
-                    <?= e(sprintf(t('path_hours_remaining'), $remainingHours)) ?>
+                    <?= e(
+                        $remainingKnown
+                            ? sprintf(t('path_hours_remaining'), $remainingHours)
+                            : t('path_hours_remaining_unknown')
+                    ) ?>
                 </h1>
             </div>
 
@@ -246,9 +289,29 @@ require_once __DIR__ . '/../includes/sidebar.php';
                     </div>
 
                     <div class="path-figure__value">
-                        <?= $earnedHours ?><span
+                        <?= $record['earned_hours'] !== null ? $earnedHours : '—' ?><span
                             class="path-figure__of"
-                        >/<?= $planHours ?></span>
+                        >/<?= $record['plan_hours'] !== null ? $planHours : '—' ?></span>
+                    </div>
+                </div>
+
+                <div class="path-figure">
+                    <div class="path-figure__label">
+                        <?= e(t('path_courses_completed')) ?>
+                    </div>
+
+                    <div class="path-figure__value">
+                        <?= $courseCounts['completed'] ?>
+                    </div>
+                </div>
+
+                <div class="path-figure">
+                    <div class="path-figure__label">
+                        <?= e(t('path_courses_remaining')) ?>
+                    </div>
+
+                    <div class="path-figure__value">
+                        <?= $courseCounts['remaining'] + $courseCounts['failed'] ?>
                     </div>
                 </div>
             </div>
@@ -373,6 +436,21 @@ require_once __DIR__ . '/../includes/sidebar.php';
         </div>
 
         <div class="path-next__aside">
+
+            <?php if ($missingFigures): ?>
+                <div class="path-note path-note--attention">
+                    <div class="path-note__label">
+                        <?= e(t('path_missing_title')) ?>
+                    </div>
+
+                    <p class="path-note__body">
+                        <?= e(sprintf(
+                            t('path_missing_body'),
+                            implode(t('list_separator'), $missingFigures)
+                        )) ?>
+                    </p>
+                </div>
+            <?php endif; ?>
 
             <?php if ($failedUpload && (int) $failedUpload['id'] > (int) $record['id']): ?>
                 <div class="path-note path-note--attention">

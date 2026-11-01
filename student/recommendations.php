@@ -13,6 +13,10 @@ if (($_SESSION['role'] ?? '') !== 'student') {
 
 $userId = (int) ($_SESSION['user_id'] ?? 0);
 
+if (empty($_SESSION['csrf_token'])) {
+    $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
+}
+
 function escapeValue(?string $value): string
 {
     return htmlspecialchars($value ?? '', ENT_QUOTES, 'UTF-8');
@@ -166,12 +170,14 @@ require_once __DIR__ . '/../includes/sidebar.php';
                     )) ?>
                 </span>
 
-                <span>
-                    <?= escapeValue(sprintf(
-                        t('recs_context_remaining'),
-                        (int) ($record['remaining_hours'] ?? 0)
-                    )) ?>
-                </span>
+                <?php if ($record['remaining_hours'] !== null): ?>
+                    <span>
+                        <?= escapeValue(sprintf(
+                            t('recs_context_remaining'),
+                            (int) $record['remaining_hours']
+                        )) ?>
+                    </span>
+                <?php endif; ?>
 
                 <?php if ($failedCount > 0): ?>
                     <span class="recs-context__attention">
@@ -182,6 +188,48 @@ require_once __DIR__ . '/../includes/sidebar.php';
                     </span>
                 <?php endif; ?>
             </div>
+        </section>
+
+        <section class="recs-semester">
+            <div class="recs-semester__info">
+                <strong>
+                    <?= escapeValue(
+                        ($record['target_semester'] ?? 'regular') === 'summer'
+                            ? t('recs_planned_summer')
+                            : t('recs_planned_regular')
+                    ) ?>
+                </strong>
+
+                <span>
+                    <?= escapeValue(sprintf(
+                        !empty($record['is_graduating'])
+                            ? t('recs_limit_graduating')
+                            : t('recs_limit_normal'),
+                        (int) ($record['credit_limit'] ?? 18)
+                    )) ?>
+                </span>
+            </div>
+
+            <form class="recs-replan-form" data-replan-form>
+                <input type="hidden" name="csrf_token" value="<?= escapeValue($_SESSION['csrf_token']) ?>">
+                <input type="hidden" name="record_id" value="<?= (int) $record['id'] ?>">
+                <input type="hidden" name="replan" value="1">
+                <input
+                    type="hidden"
+                    name="target_semester"
+                    value="<?= ($record['target_semester'] ?? 'regular') === 'summer' ? 'regular' : 'summer' ?>"
+                >
+
+                <button type="submit" class="recs-replan-button">
+                    <?= escapeValue(
+                        ($record['target_semester'] ?? 'regular') === 'summer'
+                            ? t('recs_replan_regular')
+                            : t('recs_replan_summer')
+                    ) ?>
+                </button>
+            </form>
+
+            <p class="recs-replan-status" data-replan-status hidden></p>
         </section>
 
         <section class="recs-plan">
@@ -237,8 +285,14 @@ require_once __DIR__ . '/../includes/sidebar.php';
                                     <td class="recs-hours record-data-ltr">
                                         <?= (int) $item['credit_hours'] ?>
                                     </td>
-                                    <td class="recs-reason" lang="en" dir="ltr">
-                                        <?= escapeValue($item['reason'] ?? '') ?>
+                                    <td class="recs-reason">
+                                        <span lang="en" dir="ltr"><?= escapeValue($item['reason'] ?? '') ?></span>
+
+                                        <?php if (!empty($item['has_data_warning'])): ?>
+                                            <small class="recs-warning">
+                                                <?= escapeValue(t('recs_data_warning')) ?>
+                                            </small>
+                                        <?php endif; ?>
                                     </td>
                                 </tr>
                             <?php endforeach; ?>
@@ -289,6 +343,12 @@ require_once __DIR__ . '/../includes/sidebar.php';
                                     <?= escapeValue($item['reason']) ?>
                                 </p>
                             <?php endif; ?>
+
+                            <?php if (!empty($item['has_data_warning'])): ?>
+                                <small class="recs-warning">
+                                    <?= escapeValue(t('recs_data_warning')) ?>
+                                </small>
+                            <?php endif; ?>
                         </article>
                     <?php endforeach; ?>
                 </div>
@@ -309,5 +369,53 @@ require_once __DIR__ . '/../includes/sidebar.php';
     <?php endif; ?>
 
 </main>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const form = document.querySelector('[data-replan-form]');
+    const status = document.querySelector('[data-replan-status]');
+
+    if (!form) {
+        return;
+    }
+
+    const messages = {
+        working: <?= json_encode(t('recs_replan_working'), JSON_UNESCAPED_UNICODE) ?>,
+        failed: <?= json_encode(t('record_error_analysis_failed'), JSON_UNESCAPED_UNICODE) ?>
+    };
+
+    form.addEventListener('submit', async function (event) {
+        event.preventDefault();
+
+        const button = form.querySelector('button');
+        button.disabled = true;
+        status.hidden = false;
+        status.className = 'recs-replan-status';
+        status.textContent = messages.working;
+
+        try {
+            const response = await fetch('/masar/student/analyze-academic-record.php', {
+                method: 'POST',
+                body: new FormData(form),
+                credentials: 'same-origin'
+            });
+
+            const result = await response.json().catch(function () {
+                return {};
+            });
+
+            if (!response.ok || !result.success) {
+                throw new Error(result.message || messages.failed);
+            }
+
+            window.location.reload();
+        } catch (error) {
+            status.className = 'recs-replan-status recs-replan-status--error';
+            status.textContent = error.message || messages.failed;
+            button.disabled = false;
+        }
+    });
+});
+</script>
 
 <?php require_once __DIR__ . '/../includes/footer.php'; ?>

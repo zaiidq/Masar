@@ -9,7 +9,7 @@ require_once __DIR__ . '/gemini-client.php';
  * Bump this whenever the prompt or schema below changes.
  * Stored per record so past analyses stay explainable.
  */
-const MASAR_PROMPT_VERSION = 'v4';
+const MASAR_PROMPT_VERSION = 'v5';
 
 /**
  * Instructions given to the model on every analysis.
@@ -200,11 +200,18 @@ Consider:
 - courses that unlock later required courses
 - the student's ability to complete remaining requirements efficiently
 
-The recommended plan must not exceed 18 credit hours.
+The recommended plan must not exceed the credit-hour limit given in the
+PLANNING CONTEXT at the start of the user message. That context states the
+semester being planned (regular or summer), the normal limit, and the
+higher limit allowed for a graduating student.
 
-18 credit hours is a MAXIMUM LIMIT, not a target.
+A student is graduating when the official remaining hours, minus the hours
+of courses currently in progress, fit within the graduating limit. Only
+then may the plan use the graduating limit; otherwise use the normal limit.
 
-Do not add unnecessary courses merely to reach 18 hours.
+The limit is a MAXIMUM, not a target.
+
+Do not add unnecessary courses merely to reach the limit.
 
 Likewise, do not arbitrarily recommend fewer hours when additional eligible
 courses are clearly needed and appropriate for graduation.
@@ -214,9 +221,9 @@ completed in one semester, and the necessary courses are academically
 eligible based on the Academic Record, prefer a graduation-completing
 semester plan.
 
-If the student has 18 official remaining graduation hours, this does NOT
-mean you must automatically recommend exactly 18 hours. Analyze the actual
-requirements and prerequisites first.
+If the student's official remaining hours equal the limit, this does NOT
+mean you must automatically recommend exactly that many hours. Analyze the
+actual requirements and prerequisites first.
 
 ----------------------------------------------------------------------
 6. FAILED COURSES
@@ -579,6 +586,24 @@ $prerequisites =
             }
         }
 
+        /*
+         * The course name is the first descriptive column after the code.
+         * Used only when Gemini leaves a course out of its list.
+         */
+        $courseName = '';
+
+        foreach (array_slice($columns, 1) as $column) {
+            if (
+                $column !== ''
+                && preg_match('/\p{L}{3,}/u', $column)
+                && !preg_match('/^\(.*\)$/', $column)
+                && !preg_match('/^(Pass|Fail|Exempted)$/i', $column)
+            ) {
+                $courseName = $column;
+                break;
+            }
+        }
+
         $mark = null;
 
         foreach ($columns as $column) {
@@ -632,6 +657,7 @@ $prerequisites =
 
         $fact = [
             'course_code' => $courseCode,
+            'course_name' => $courseName,
             'prerequisite_codes' => $prerequisites,
             'credit_hours' => $creditHours,
             'mark' => $mark,
@@ -673,6 +699,10 @@ $prerequisites =
             if ($fact['credit_hours'] === null) {
                 $fact['credit_hours'] =
                     $existing['credit_hours'];
+            }
+
+            if ($fact['course_name'] === '') {
+                $fact['course_name'] = $existing['course_name'];
             }
 
             $fact['source_conflict'] =
@@ -717,30 +747,41 @@ $prerequisites =
  * contradict the record, so a hallucinated course can never reach the
  * student as though it were verified advice.
  *
+ * Duplicate suggestions (including A-prefixed variants of the same code)
+ * are dropped, because a second row for the same course would violate the
+ * unique key and make the whole analysis fail. Priorities are numbered
+ * over accepted suggestions only, so the student always sees 1, 2, 3 ...
+ *
  * @param  array<int, array<string, mixed>>  $recommendations
+ * @param  array<string, array<string, mixed>>  $deterministicFacts
  * @param  array<string, array<string, mixed>>  $coursesByCode
  * @return array<int, array<string, mixed>>
  */
 function validateRecommendations(
     array $recommendations,
     array $deterministicFacts,
-    array $coursesByCode
+    array $coursesByCode,
+    int $maximumHours = 18
 ): array {
     $validated = [];
-    $priority = 0;
+    $seenCodes = [];
+    $acceptedPriority = 0;
     $acceptedHours = 0;
-    $maximumHours = 18;
 
     foreach ($recommendations as $recommendation) {
-        $code = normaliseCourseCode(
-    (string) ($recommendation['course_code'] ?? '')
-);
-
-        if ($code === '') {
+        if (!is_array($recommendation)) {
             continue;
         }
 
-        $priority++;
+        $code = normaliseCourseCode(
+            (string) ($recommendation['course_code'] ?? '')
+        );
+
+        if ($code === '' || isset($seenCodes[$code])) {
+            continue;
+        }
+
+        $seenCodes[$code] = true;
         $rejection = null;
 
         /*
@@ -808,27 +849,39 @@ function validateRecommendations(
         }
 
         /*
-         * Rule 5: accepted recommendations may not exceed 18 hours.
-         * Gemini determines priority; PHP guarantees the limit.
+         * Rule 5: accepted recommendations may not exceed the semester
+         * credit limit. Gemini determines priority; PHP guarantees it.
          */
         if (
             $rejection === null
             && ($acceptedHours + $creditHours) > $maximumHours
         ) {
-            $rejection =
-                'Exceeds the 18-credit-hour recommendation limit.';
+            $rejection = sprintf(
+                'Exceeds the %d-credit-hour limit for this semester.',
+                $maximumHours
+            );
         }
 
         if ($rejection === null) {
             $acceptedHours += $creditHours;
+            $acceptedPriority++;
+        }
+
+        $courseName = trim((string) ($aiCourse['course_name'] ?? ''));
+
+        if ($courseName === '') {
+            $courseName = trim((string) ($fact['course_name'] ?? ''));
         }
 
         $validated[] = [
-            'course_code' => $code,
-            'course_name' =>
-                $aiCourse['course_name'] ?? $code,
-            'credit_hours' => $creditHours,
-            'priority' => $priority,
+            'course_code' => mb_substr($code, 0, 20),
+            'course_name' => mb_substr(
+                $courseName !== '' ? $courseName : $code,
+                0,
+                255
+            ),
+            'credit_hours' => max(0, min(255, $creditHours)),
+            'priority' => $rejection === null ? $acceptedPriority : 0,
             'reason' => mb_substr(
                 trim(
                     (string) ($recommendation['reason'] ?? '')
@@ -837,7 +890,11 @@ function validateRecommendations(
                 500
             ),
             'is_accepted' => $rejection === null ? 1 : 0,
-            'rejection_reason' => $rejection,
+            'rejection_reason' => $rejection !== null
+                ? mb_substr($rejection, 0, 255)
+                : null,
+            'has_data_warning' =>
+                !empty($fact['source_conflict']) ? 1 : 0,
         ];
     }
 
@@ -965,10 +1022,115 @@ function mergeCourseWithDeterministicFacts(
 }
 
 /**
+ * MEU registration rules (credit limits, analysis timeout).
+ *
+ * @return array<string, mixed>
+ */
+function academicConfig(): array
+{
+    static $config = null;
+
+    if ($config === null) {
+        $config = require __DIR__ . '/../config/academic.php';
+    }
+
+    return $config;
+}
+
+/**
+ * Decide the credit-hour limit for the semester being planned.
+ *
+ * Graduating = the hours still needed after the current in-progress
+ * courses fit within the graduating limit for that semester type.
+ *
+ * @return array{limit: int, is_graduating: bool, normal: int, graduating: int}
+ */
+function resolveCreditLimit(
+    string $targetSemester,
+    ?int $remainingHours,
+    int $inProgressHours
+): array {
+    $limits = academicConfig()['credit_limits'];
+    $semesterLimits = $limits[$targetSemester] ?? $limits['regular'];
+
+    $normal = (int) $semesterLimits['normal'];
+    $graduating = (int) $semesterLimits['graduating'];
+
+    $isGraduating = false;
+
+    if ($remainingHours !== null) {
+        $hoursAfterCurrent = $remainingHours - $inProgressHours;
+
+        $isGraduating =
+            $hoursAfterCurrent > 0
+            && $hoursAfterCurrent <= $graduating;
+    }
+
+    return [
+        'limit' => $isGraduating ? $graduating : $normal,
+        'is_graduating' => $isGraduating,
+        'normal' => $normal,
+        'graduating' => $graduating,
+    ];
+}
+
+/**
+ * Summary values from the model, clamped to what the columns can hold.
+ * A value the model did not return stays NULL so the interface can show
+ * it as missing instead of as zero.
+ *
+ * @param  array<string, mixed>  $summary
+ * @return array<string, mixed>
+ */
+function normaliseSummary(array $summary): array
+{
+    $text = static function (string $key, int $length) use ($summary): ?string {
+        $value = trim((string) ($summary[$key] ?? ''));
+
+        return $value === '' ? null : mb_substr($value, 0, $length);
+    };
+
+    $hours = static function (string $key) use ($summary): ?int {
+        if (!isset($summary[$key]) || !is_numeric($summary[$key])) {
+            return null;
+        }
+
+        $value = (int) $summary[$key];
+
+        return $value >= 0 && $value <= 65535 ? $value : null;
+    };
+
+    $gpa = null;
+
+    if (isset($summary['gpa']) && is_numeric($summary['gpa'])) {
+        $value = round((float) $summary['gpa'], 2);
+        $gpa = $value >= 0 && $value <= 99.99 ? $value : null;
+    }
+
+    return [
+        'academic_semester' => $text('academic_semester', 50),
+        'faculty_name' => $text('faculty_name', 150),
+        'major_name' => $text('major_name', 150),
+        'degree_name' => $text('degree_name', 100),
+        'student_level' => $text('student_level', 100),
+        'academic_grade' => $text('academic_grade', 50),
+        'gpa' => $gpa,
+        'plan_hours' => $hours('plan_hours'),
+        'graded_hours' => $hours('graded_hours'),
+        'earned_hours' => $hours('earned_hours'),
+        'attempted_hours' => $hours('attempted_hours'),
+        'remaining_hours' => $hours('remaining_hours'),
+    ];
+}
+
+/**
  * Run the full analysis pipeline for one uploaded record.
  *
  * Extract rows -> redact -> ask the model -> validate -> store.
  * Marks the record as the student's current one on success.
+ *
+ * The caller is responsible for moving the record to "processing"
+ * (atomically) before calling this function.
  *
  * @throws GeminiException|RuntimeException
  */
@@ -976,19 +1138,45 @@ function analyzeAcademicRecord(
     PDO $pdo,
     int $recordId,
     int $userId,
-    string $pdfPath
+    string $pdfPath,
+    string $targetSemester = 'regular'
 ): void {
-    $pdo->prepare(
-        'UPDATE academic_records
-         SET status = "processing",
-             analysis_error = NULL
-         WHERE id = :id'
-    )->execute(['id' => $recordId]);
+    if (!in_array($targetSemester, ['regular', 'summer'], true)) {
+        $targetSemester = 'regular';
+    }
 
     $rows = extractAcademicRecordRows($pdfPath);
-    
+
     $deterministicFacts =
         extractDeterministicCourseFacts($rows);
+
+    if ($deterministicFacts === []) {
+        throw new RuntimeException(
+            'No course rows could be read from the PDF.'
+        );
+    }
+
+    $inProgressHours = 0;
+
+    foreach ($deterministicFacts as $fact) {
+        if ($fact['completion_state'] === 'in_progress') {
+            $inProgressHours += (int) ($fact['credit_hours'] ?? 0);
+        }
+    }
+
+    $limits = academicConfig()['credit_limits'][$targetSemester];
+
+    $planningContext = sprintf(
+        "PLANNING CONTEXT\n"
+        . "- Semester being planned: %s\n"
+        . "- Normal credit-hour limit: %d\n"
+        . "- Graduating-student credit-hour limit: %d\n"
+        . "- Credit hours currently in progress: %d\n\n",
+        $targetSemester === 'summer' ? 'summer semester' : 'regular semester',
+        (int) $limits['normal'],
+        (int) $limits['graduating'],
+        $inProgressHours
+    );
 
     $redacted = redactAcademicRecordText($rows);
 
@@ -996,11 +1184,11 @@ function analyzeAcademicRecord(
 
     $result = callGeminiJson(
         academicRecordSystemInstruction(),
-        "MEU Academic Record:\n\n" . $redacted,
+        $planningContext . "MEU Academic Record:\n\n" . $redacted,
         academicRecordResponseSchema()
     );
 
-    $summary = (array) ($result['summary'] ?? []);
+    $summary = normaliseSummary((array) ($result['summary'] ?? []));
     $rawCourses = (array) ($result['courses'] ?? []);
 
     if ($rawCourses === []) {
@@ -1019,31 +1207,75 @@ function analyzeAcademicRecord(
 
         $course = normaliseCourse($rawCourse);
 
-if ($course === null) {
-    continue;
-}
+        if ($course === null) {
+            continue;
+        }
 
-$courseCode = $course['course_code'];
+        $courseCode = $course['course_code'];
 
-$course = mergeCourseWithDeterministicFacts(
-    $course,
-    $deterministicFacts[$courseCode] ?? null
-);
+        /* Duplicate codes would break the unique key; keep the first. */
+        if (isset($coursesByCode[$courseCode])) {
+            continue;
+        }
 
-/* Duplicate codes would break the unique key; keep the first. */
-if (isset($coursesByCode[$courseCode])) {
-    continue;
-}
+        $fact = $deterministicFacts[$courseCode] ?? null;
 
-$courses[] = $course;
-$coursesByCode[$courseCode] = $course;
+        $course = mergeCourseWithDeterministicFacts($course, $fact);
+        $course['has_data_warning'] =
+            !empty($fact['source_conflict']) ? 1 : 0;
+
+        $courses[] = $course;
+        $coursesByCode[$courseCode] = $course;
     }
+
+    /*
+     * The PDF is the source of truth for which courses exist. A course
+     * the parser found but the model left out is still stored, using the
+     * name read from the PDF row.
+     */
+    foreach ($deterministicFacts as $courseCode => $fact) {
+        if (isset($coursesByCode[$courseCode])) {
+            continue;
+        }
+
+        $course = [
+            'requirement_type' => 'Unspecified',
+            'course_code' => mb_substr($courseCode, 0, 20),
+            'course_name' => mb_substr(
+                $fact['course_name'] !== '' ? $fact['course_name'] : $courseCode,
+                0,
+                255
+            ),
+            'prerequisite_codes' => [],
+            'credit_hours' => 0,
+            'mark' => null,
+            'result' => 'none',
+            'registration_status' => null,
+            'semester_code' => null,
+            'is_current_semester' => 0,
+            'completion_state' => 'remaining',
+        ];
+
+        $course = mergeCourseWithDeterministicFacts($course, $fact);
+        $course['has_data_warning'] =
+            !empty($fact['source_conflict']) ? 1 : 0;
+
+        $courses[] = $course;
+        $coursesByCode[$courseCode] = $course;
+    }
+
+    $creditLimit = resolveCreditLimit(
+        $targetSemester,
+        $summary['remaining_hours'],
+        $inProgressHours
+    );
 
     $recommendations = validateRecommendations(
         (array) ($result['recommended_courses'] ?? []),
-      $deterministicFacts,
-      $coursesByCode
-);
+        $deterministicFacts,
+        $coursesByCode,
+        $creditLimit['limit']
+    );
 
     $pdo->beginTransaction();
 
@@ -1062,41 +1294,48 @@ $coursesByCode[$courseCode] = $course;
                 record_id, requirement_type, course_code, course_name,
                 prerequisite_codes, credit_hours, mark, result,
                 registration_status, semester_code, is_current_semester,
-                completion_state
+                completion_state, has_data_warning
             ) VALUES (
                 :record_id, :requirement_type, :course_code, :course_name,
                 :prerequisite_codes, :credit_hours, :mark, :result,
                 :registration_status, :semester_code, :is_current_semester,
-                :completion_state
+                :completion_state, :has_data_warning
             )'
         );
 
         foreach ($courses as $course) {
+            $prerequisiteList = implode(',', $course['prerequisite_codes']);
+
             $courseStatement->execute([
                 'record_id' => $recordId,
                 'requirement_type' => $course['requirement_type'],
                 'course_code' => $course['course_code'],
                 'course_name' => $course['course_name'],
-                'prerequisite_codes' => $course['prerequisite_codes'] === []
+                'prerequisite_codes' => $prerequisiteList === ''
                     ? null
-                    : implode(',', $course['prerequisite_codes']),
-                'credit_hours' => $course['credit_hours'],
-                'mark' => $course['mark'],
+                    : mb_substr($prerequisiteList, 0, 255),
+                'credit_hours' => max(0, min(255, (int) $course['credit_hours'])),
+                'mark' => $course['mark'] !== null
+                    ? mb_substr((string) $course['mark'], 0, 5)
+                    : null,
                 'result' => $course['result'],
                 'registration_status' => $course['registration_status'],
                 'semester_code' => $course['semester_code'],
                 'is_current_semester' => $course['is_current_semester'],
                 'completion_state' => $course['completion_state'],
+                'has_data_warning' => $course['has_data_warning'],
             ]);
         }
 
         $recommendationStatement = $pdo->prepare(
             'INSERT INTO record_recommendations (
                 record_id, course_code, course_name, credit_hours,
-                priority, reason, is_accepted, rejection_reason
+                priority, reason, is_accepted, rejection_reason,
+                has_data_warning
             ) VALUES (
                 :record_id, :course_code, :course_name, :credit_hours,
-                :priority, :reason, :is_accepted, :rejection_reason
+                :priority, :reason, :is_accepted, :rejection_reason,
+                :has_data_warning
             )'
         );
 
@@ -1110,6 +1349,7 @@ $coursesByCode[$courseCode] = $course;
                 'reason' => $recommendation['reason'],
                 'is_accepted' => $recommendation['is_accepted'],
                 'rejection_reason' => $recommendation['rejection_reason'],
+                'has_data_warning' => $recommendation['has_data_warning'],
             ]);
         }
 
@@ -1126,6 +1366,9 @@ $coursesByCode[$courseCode] = $course;
                  is_current = 1,
                  analyzed_at = NOW(),
                  analysis_error = NULL,
+                 target_semester = :target_semester,
+                 is_graduating = :is_graduating,
+                 credit_limit = :credit_limit,
                  ai_model = :ai_model,
                  prompt_version = :prompt_version,
                  analysis_json = :analysis_json,
@@ -1143,24 +1386,27 @@ $coursesByCode[$courseCode] = $course;
                  remaining_hours = :remaining_hours
              WHERE id = :id'
         )->execute([
-            'ai_model' => $model,
+            'target_semester' => $targetSemester,
+            'is_graduating' => $creditLimit['is_graduating'] ? 1 : 0,
+            'credit_limit' => $creditLimit['limit'],
+            'ai_model' => mb_substr((string) $model, 0, 100),
             'prompt_version' => MASAR_PROMPT_VERSION,
             'analysis_json' => json_encode(
                 $result,
                 JSON_UNESCAPED_UNICODE
             ),
-            'academic_semester' => $summary['academic_semester'] ?? null,
-            'faculty_name' => $summary['faculty_name'] ?? null,
-            'major_name' => $summary['major_name'] ?? null,
-            'degree_name' => $summary['degree_name'] ?? null,
-            'student_level' => $summary['student_level'] ?? null,
-            'academic_grade' => $summary['academic_grade'] ?? null,
-            'gpa' => isset($summary['gpa']) ? (float) $summary['gpa'] : null,
-            'plan_hours' => $summary['plan_hours'] ?? null,
-            'graded_hours' => $summary['graded_hours'] ?? null,
-            'earned_hours' => $summary['earned_hours'] ?? null,
-            'attempted_hours' => $summary['attempted_hours'] ?? null,
-            'remaining_hours' => $summary['remaining_hours'] ?? null,
+            'academic_semester' => $summary['academic_semester'],
+            'faculty_name' => $summary['faculty_name'],
+            'major_name' => $summary['major_name'],
+            'degree_name' => $summary['degree_name'],
+            'student_level' => $summary['student_level'],
+            'academic_grade' => $summary['academic_grade'],
+            'gpa' => $summary['gpa'],
+            'plan_hours' => $summary['plan_hours'],
+            'graded_hours' => $summary['graded_hours'],
+            'earned_hours' => $summary['earned_hours'],
+            'attempted_hours' => $summary['attempted_hours'],
+            'remaining_hours' => $summary['remaining_hours'],
             'id' => $recordId,
         ]);
 
@@ -1175,20 +1421,157 @@ $coursesByCode[$courseCode] = $course;
 }
 
 /**
+ * Atomically move a record into "processing".
+ *
+ * Succeeds only for a record owned by the user that is uploaded, failed,
+ * stale in processing, or (when re-planning) already analysed. Two
+ * simultaneous requests can therefore never analyse the same record.
+ *
+ * @return string|null The status the record had before, or null if it
+ *                     could not be claimed.
+ */
+function claimRecordForAnalysis(
+    PDO $pdo,
+    int $recordId,
+    int $userId,
+    string $targetSemester,
+    bool $allowAnalyzed
+): ?string {
+    $statement = $pdo->prepare(
+        'SELECT status FROM academic_records
+         WHERE id = :id AND user_id = :user_id'
+    );
+    $statement->execute(['id' => $recordId, 'user_id' => $userId]);
+    $previousStatus = $statement->fetchColumn();
+
+    if ($previousStatus === false) {
+        return null;
+    }
+
+    $claimable = ['uploaded', 'failed'];
+
+    if ($allowAnalyzed) {
+        $claimable[] = 'analyzed';
+    }
+
+    $timeout = (int) academicConfig()['analysis_timeout_minutes'];
+
+    $update = $pdo->prepare(
+        "UPDATE academic_records
+         SET status = 'processing',
+             analysis_error = NULL,
+             analysis_started_at = NOW()
+         WHERE id = :id
+           AND user_id = :user_id
+           AND status = :previous_status
+           AND (
+                status IN ('" . implode("','", $claimable) . "')
+                OR (
+                    status = 'processing'
+                    AND (
+                        analysis_started_at IS NULL
+                        OR analysis_started_at < NOW() - INTERVAL {$timeout} MINUTE
+                    )
+                )
+           )"
+    );
+
+    /*
+     * target_semester is deliberately not changed here: it is written by
+     * analyzeAcademicRecord() on success, so a failed re-plan leaves the
+     * stored results and their label consistent.
+     */
+    unset($targetSemester);
+
+    $update->execute([
+        'id' => $recordId,
+        'user_id' => $userId,
+        'previous_status' => $previousStatus,
+    ]);
+
+    return $update->rowCount() === 1 ? (string) $previousStatus : null;
+}
+
+/**
  * Record a failed analysis without losing the uploaded file.
+ *
+ * When a re-plan of an already analysed record fails, the record goes
+ * back to "analyzed" so the student keeps their previous results.
+ * The technical message is stored for administrators only.
  */
 function markAnalysisFailed(
     PDO $pdo,
     int $recordId,
-    string $message
+    string $message,
+    string $previousStatus = 'uploaded'
 ): void {
+    $restoredStatus = $previousStatus === 'analyzed' ? 'analyzed' : 'failed';
+
     $pdo->prepare(
         'UPDATE academic_records
-         SET status = "failed",
+         SET status = :status,
              analysis_error = :message
          WHERE id = :id'
     )->execute([
+        'status' => $restoredStatus,
         'message' => mb_substr($message, 0, 500),
         'id' => $recordId,
     ]);
+}
+
+/**
+ * Mark records stuck in "processing" (worker died, timeout, server
+ * restart) as failed so the student can retry them.
+ */
+function expireStaleAnalyses(PDO $pdo, int $userId): void
+{
+    $timeout = (int) academicConfig()['analysis_timeout_minutes'];
+
+    $pdo->prepare(
+        "UPDATE academic_records
+         SET status = IF(analyzed_at IS NOT NULL AND is_current = 1, 'analyzed', 'failed'),
+             analysis_error = 'Analysis timed out before completing.'
+         WHERE user_id = :user_id
+           AND status = 'processing'
+           AND (
+                analysis_started_at IS NULL
+                OR analysis_started_at < NOW() - INTERVAL {$timeout} MINUTE
+           )"
+    )->execute(['user_id' => $userId]);
+}
+
+/**
+ * Translated, student-safe message for an analysis exception.
+ * The raw message is never shown to students.
+ */
+function analysisFailureMessageKey(Throwable $exception): string
+{
+    $message = $exception->getMessage();
+
+    if ($exception instanceof GeminiException) {
+        if (str_contains($message, 'not configured')) {
+            return 'record_error_ai_unavailable';
+        }
+
+        if (
+            str_contains($message, 'HTTP 429')
+            || str_contains($message, 'HTTP 500')
+            || str_contains($message, 'HTTP 502')
+            || str_contains($message, 'HTTP 503')
+            || str_contains($message, 'HTTP 504')
+            || str_contains($message, 'could not be reached')
+        ) {
+            return 'record_error_ai_busy';
+        }
+    }
+
+    if (
+        str_contains($message, 'No course rows')
+        || str_contains($message, 'No readable text')
+        || str_contains($message, 'returned no courses')
+    ) {
+        return 'record_error_unreadable_courses';
+    }
+
+    return 'record_error_analysis_failed';
 }
