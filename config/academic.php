@@ -20,7 +20,7 @@ return [
             'graduating' => 21,
         ],
         'summer' => [
-            'normal' => 9,
+            'normal' => 10,
             'graduating' => 12,
         ],
     ],
