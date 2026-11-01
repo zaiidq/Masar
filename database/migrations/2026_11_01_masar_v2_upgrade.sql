@@ -30,6 +30,19 @@ ALTER TABLE `majors`
     ADD COLUMN IF NOT EXISTS `name_ar` VARCHAR(150) NULL DEFAULT NULL AFTER `name`;
 
 -- ------------------------------------------------------------
+--  university_links: Arabic title / description / category
+--  (the split of existing values is in 2026_11_02_bilingual_links.sql)
+-- ------------------------------------------------------------
+
+ALTER TABLE `university_links`
+    ADD COLUMN IF NOT EXISTS `title_ar` VARCHAR(120)
+        NULL DEFAULT NULL AFTER `category`,
+    ADD COLUMN IF NOT EXISTS `description_ar` VARCHAR(255)
+        NULL DEFAULT NULL AFTER `title_ar`,
+    ADD COLUMN IF NOT EXISTS `category_ar` VARCHAR(80)
+        NULL DEFAULT NULL AFTER `description_ar`;
+
+-- ------------------------------------------------------------
 --  users: persisted language preference (FR4)
 -- ------------------------------------------------------------
 
