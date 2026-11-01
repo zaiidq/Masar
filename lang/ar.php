@@ -535,4 +535,7 @@ return [
     'admin_links_arabic_version' => 'النسخة العربية',
     'admin_links_arabic_help' => 'تظهر للطلاب الذين يستخدمون الواجهة العربية. اترك الحقل فارغاً لعرض النص الإنجليزي بدلاً منه.',
     'admin_links_no_arabic' => 'لا يوجد عنوان عربي بعد',
+
+    /* Admin users fix */
+    'admin_users_error_details' => 'تفاصيل الخطأ',
 ];

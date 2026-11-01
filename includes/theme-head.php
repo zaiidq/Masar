@@ -28,6 +28,6 @@
         })();
     </script>
 
-    <link rel="stylesheet" href="/masar/assets/css/style.css?v=17">
+    <link rel="stylesheet" href="/masar/assets/css/style.css?v=18">
 
     <script src="/masar/assets/js/theme.js?v=2" defer></script>

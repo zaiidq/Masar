@@ -535,4 +535,7 @@ return [
     'admin_links_arabic_version' => 'Arabic version',
     'admin_links_arabic_help' => 'Shown to students using the Arabic interface. Leave a field empty to show the English text instead.',
     'admin_links_no_arabic' => 'No Arabic title yet',
+
+    /* Admin users fix */
+    'admin_users_error_details' => 'Error details',
 ];
