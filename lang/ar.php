@@ -525,4 +525,8 @@ return [
     'nav_student_label' => 'تنقل الطالب',
     'nav_student_mobile_label' => 'تنقل الطالب (الجوال)',
     'admin_brand_label' => 'إدارة مسار',
+
+    /* Record page and reasons */
+    'record_show_all_courses' => 'عرض جميع المواد (%d)',
+    'record_show_fewer_courses' => 'عرض مواد أقل',
 ];

@@ -237,8 +237,8 @@ require_once __DIR__ . '/../includes/admin-sidebar.php';
 
                                 <td>
                                     <?php if ($log['user_id'] !== null): ?>
-                                        <div class="activity-user-name" dir="auto">
-                                            <?= adminEscape($log['full_name'] ?: sprintf(t('admin_activity_deleted_user'), $log['user_id'])) ?>
+                                        <div class="activity-user-name">
+                                            <bdi><?= adminEscape($log['full_name'] ?: sprintf(t('admin_activity_deleted_user'), $log['user_id'])) ?></bdi>
                                         </div>
                                         <div class="activity-user-meta" dir="ltr">
                                             #<?= (int) $log['user_id'] ?>

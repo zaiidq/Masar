@@ -525,4 +525,8 @@ return [
     'nav_student_label' => 'Student navigation',
     'nav_student_mobile_label' => 'Student navigation (mobile)',
     'admin_brand_label' => 'Masar administration',
+
+    /* Record page and reasons */
+    'record_show_all_courses' => 'Show all %d courses',
+    'record_show_fewer_courses' => 'Show fewer courses',
 ];

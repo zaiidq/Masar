@@ -5,6 +5,7 @@ declare(strict_types=1);
 require_once __DIR__ . '/../includes/auth_check.php';
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../includes/language.php';
+require_once __DIR__ . '/../includes/academic-record-analyzer.php';
 
 if (($_SESSION['role'] ?? '') !== 'student') {
     header('Location: /masar/admin/dashboard.php');
@@ -39,6 +40,28 @@ $progress = [];
 $failedCount = 0;
 
 if ($record) {
+    /*
+     * Arabic interface: translate any English-only reasons once and store
+     * them. A failure is remembered for this session so the page never
+     * waits on the AI service twice.
+     */
+    $translationKey = 'reason_translation_failed_' . (int) $record['id'];
+
+    if (currentLanguage() === 'ar' && empty($_SESSION[$translationKey])) {
+        ensureArabicReasons($pdo, (int) $record['id']);
+
+        $checkStatement = $pdo->prepare(
+            "SELECT COUNT(*) FROM record_recommendations
+             WHERE record_id = :record_id AND is_accepted = 1
+               AND reason <> '' AND (reason_ar IS NULL OR reason_ar = '')"
+        );
+        $checkStatement->execute(['record_id' => $record['id']]);
+
+        if ((int) $checkStatement->fetchColumn() > 0) {
+            $_SESSION[$translationKey] = 1;
+        }
+    }
+
     $recommendationStatement = $pdo->prepare(
         'SELECT
             rr.*,

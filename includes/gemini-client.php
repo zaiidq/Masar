@@ -21,7 +21,7 @@ class GeminiException extends RuntimeException
  * @param  array<string, mixed>  $payload
  * @return array<string, mixed>
  */
-function geminiGenerate(array $payload): array
+function geminiGenerate(array $payload, ?int $timeoutOverride = null): array
 {
     $apiKey = env('GEMINI_API_KEY');
 
@@ -32,7 +32,7 @@ function geminiGenerate(array $payload): array
     }
 
     $model = env('GEMINI_MODEL', 'gemini-2.5-flash');
-    $timeout = (int) env('GEMINI_TIMEOUT', '120');
+    $timeout = $timeoutOverride ?? (int) env('GEMINI_TIMEOUT', '120');
 
     /* GEMINI_BASE_URL is only overridden for local testing. */
     $baseUrl = rtrim(
@@ -57,7 +57,8 @@ function geminiGenerate(array $payload): array
         );
     }
 
-    $retryDelays = [2, 5];
+    /* Short, interactive requests get a single quick retry. */
+    $retryDelays = $timeoutOverride !== null ? [1] : [2, 5];
     $attempt = 0;
 
     while (true) {
@@ -189,7 +190,8 @@ function geminiCandidateText(array $decoded): string
 function callGeminiJson(
     string $systemInstruction,
     string $userPrompt,
-    array $responseSchema
+    array $responseSchema,
+    ?int $timeoutOverride = null
 ): array {
     $decoded = geminiGenerate([
         'systemInstruction' => [
@@ -211,7 +213,7 @@ function callGeminiJson(
             'responseMimeType' => 'application/json',
             'responseSchema' => $responseSchema,
         ],
-    ]);
+    ], $timeoutOverride);
 
     $text = geminiCandidateText($decoded);
 

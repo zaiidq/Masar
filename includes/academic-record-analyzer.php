@@ -1589,3 +1589,92 @@ function analysisFailureMessageKey(Throwable $exception): string
 
     return 'record_error_analysis_failed';
 }
+
+/**
+ * Fill in Arabic reasons for recommendations that only have English ones
+ * (analyses made before reasons were bilingual, or a model reply that
+ * left reason_ar empty). Runs once per record; results are stored.
+ *
+ * Never throws: on any failure the page simply keeps the English text.
+ */
+function ensureArabicReasons(PDO $pdo, int $recordId): void
+{
+    $statement = $pdo->prepare(
+        "SELECT course_code, course_name, reason
+         FROM record_recommendations
+         WHERE record_id = :record_id
+           AND is_accepted = 1
+           AND reason IS NOT NULL AND reason <> ''
+           AND (reason_ar IS NULL OR reason_ar = '')"
+    );
+    $statement->execute(['record_id' => $recordId]);
+    $missing = $statement->fetchAll();
+
+    if ($missing === []) {
+        return;
+    }
+
+    $lines = [];
+
+    foreach ($missing as $row) {
+        $lines[] = $row['course_code'] . ' | ' . $row['course_name'] . ' | ' . $row['reason'];
+    }
+
+    try {
+        $result = callGeminiJson(
+            "Translate academic advising notes from English into clear Modern Standard Arabic.\n"
+            . "Keep course codes as digits and course names exactly as written (in English).\n"
+            . "Do not add or remove information. Return one translation per input line.",
+            "Lines (course code | course name | English reason):\n" . implode("\n", $lines),
+            [
+                'type' => 'OBJECT',
+                'required' => ['translations'],
+                'properties' => [
+                    'translations' => [
+                        'type' => 'ARRAY',
+                        'items' => [
+                            'type' => 'OBJECT',
+                            'required' => ['course_code', 'reason_ar'],
+                            'properties' => [
+                                'course_code' => ['type' => 'STRING'],
+                                'reason_ar' => ['type' => 'STRING'],
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+            20
+        );
+    } catch (Throwable $exception) {
+        error_log('Masar reason translation failed: ' . $exception->getMessage());
+
+        return;
+    }
+
+    $wanted = array_flip(array_column($missing, 'course_code'));
+
+    $update = $pdo->prepare(
+        'UPDATE record_recommendations
+         SET reason_ar = :reason_ar
+         WHERE record_id = :record_id AND course_code = :course_code'
+    );
+
+    foreach ((array) ($result['translations'] ?? []) as $translation) {
+        if (!is_array($translation)) {
+            continue;
+        }
+
+        $code = normaliseCourseCode((string) ($translation['course_code'] ?? ''));
+        $text = trim((string) ($translation['reason_ar'] ?? ''));
+
+        if ($text === '' || !isset($wanted[$code])) {
+            continue;
+        }
+
+        $update->execute([
+            'reason_ar' => mb_substr($text, 0, 500),
+            'record_id' => $recordId,
+            'course_code' => $code,
+        ]);
+    }
+}

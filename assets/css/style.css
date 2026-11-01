@@ -6989,3 +6989,27 @@ html[data-theme="dark"] .chat-welcome__mark,
 html[data-theme="dark"] .admin-links-empty-new img {
     content: url("/masar/assets/brand/masar-mark-white.svg");
 }
+
+/* Academic record: show-all toggle for the course table */
+.record-show-all {
+    display: block;
+    inline-size: 100%;
+    margin-block-start: 12px;
+    padding: 12px 16px;
+    border: 1px solid var(--color-border);
+    border-radius: 3px;
+    background: var(--color-surface);
+    color: var(--color-primary);
+    font: inherit;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.record-show-all:hover {
+    border-color: var(--color-primary);
+}
+
+.record-show-all[hidden] {
+    display: none;
+}

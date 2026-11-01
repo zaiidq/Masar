@@ -250,7 +250,7 @@ require_once __DIR__ . '/../includes/admin-sidebar.php';
                         <tr>
                             <td data-label="<?= adminEscape(t('admin_users_user')) ?>">
                                 <div class="admin-link-title-cell-new">
-                                    <strong dir="auto"><?= adminEscape($user['full_name']) ?></strong>
+                                    <strong><bdi><?= adminEscape($user['full_name']) ?></bdi></strong>
                                     <small dir="ltr"><?= adminEscape($user['email']) ?></small>
                                     <?php if (!empty($user['university_id'])): ?>
                                         <small dir="ltr"><?= adminEscape($user['university_id']) ?></small>

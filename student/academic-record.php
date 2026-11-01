@@ -618,7 +618,7 @@ require_once __DIR__ . '/../includes/sidebar.php';
                     </div>
                 <?php else: ?>
                     <div class="record-table-wrap">
-                        <table class="record-data-table">
+                        <table class="record-data-table" data-collapsible-table data-visible-rows="10">
                             <thead>
                                 <tr>
                                     <th><?= escape(t('record_code')) ?></th>
@@ -655,6 +655,20 @@ require_once __DIR__ . '/../includes/sidebar.php';
                             </tbody>
                         </table>
                     </div>
+
+                    <?php if (count($currentCourses) > 10): ?>
+                        <button
+                            type="button"
+                            class="record-show-all"
+                            data-collapse-toggle
+                            data-label-more="<?= escape(sprintf(t('record_show_all_courses'), count($currentCourses))) ?>"
+                            data-label-less="<?= escape(t('record_show_fewer_courses')) ?>"
+                            aria-expanded="false"
+                            hidden
+                        >
+                            <?= escape(sprintf(t('record_show_all_courses'), count($currentCourses))) ?>
+                        </button>
+                    <?php endif; ?>
                 <?php endif; ?>
             </section>
 
@@ -897,6 +911,39 @@ document.addEventListener('DOMContentLoaded', function () {
         window.setTimeout(function () {
             window.location.reload();
         }, 5000);
+    }
+
+    /* Course table: first rows only, until the student asks for all. */
+    const collapsibleTable = document.querySelector('[data-collapsible-table]');
+    const collapseToggle = document.querySelector('[data-collapse-toggle]');
+
+    if (collapsibleTable && collapseToggle) {
+        const visibleRows = parseInt(collapsibleTable.dataset.visibleRows, 10) || 10;
+        const rows = Array.from(collapsibleTable.tBodies[0].rows);
+        let expanded = false;
+
+        const render = function () {
+            rows.forEach(function (row, index) {
+                row.hidden = !expanded && index >= visibleRows;
+            });
+
+            collapseToggle.textContent = expanded
+                ? collapseToggle.dataset.labelLess
+                : collapseToggle.dataset.labelMore;
+            collapseToggle.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+        };
+
+        collapseToggle.hidden = false;
+        collapseToggle.addEventListener('click', function () {
+            expanded = !expanded;
+            render();
+
+            if (!expanded) {
+                collapsibleTable.scrollIntoView({ block: 'start', behavior: 'smooth' });
+            }
+        });
+
+        render();
     }
 
     const uploadInput = document.querySelector('[data-upload-input]');
