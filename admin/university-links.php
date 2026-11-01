@@ -2,21 +2,20 @@
 
 declare(strict_types=1);
 
-require_once __DIR__ . '/../includes/auth_check.php';
-require_once __DIR__ . '/../config/database.php';
-require_once __DIR__ . '/../includes/language.php';
+require_once __DIR__ . '/../includes/admin-common.php';
 
-if ($_SESSION['role'] !== 'admin') {
-    header('Location: ../student/dashboard.php');
-    exit;
-}
-
-if (!isset($_SESSION['csrf_token'])) {
-    $_SESSION['csrf_token'] = bin2hex(random_bytes(32));
-}
+$adminId = (int) $_SESSION['user_id'];
 
 $errors = [];
 $success = '';
+
+$flash = adminTakeFlash();
+
+if ($flash && $flash['type'] === 'success') {
+    $success = $flash['message'];
+} elseif ($flash) {
+    $errors[] = $flash['message'];
+}
 
 $isEditing = false;
 $editingLinkId = 0;
@@ -90,10 +89,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         empty($errors)
         && in_array($action, ['create', 'update'], true)
     ) {
-        $title = trim($_POST['title'] ?? '');
-        $url = trim($_POST['url'] ?? '');
-        $description = trim($_POST['description'] ?? '');
-        $category = trim($_POST['category'] ?? '');
+        $title = trim((string) ($_POST['title'] ?? ''));
+        $url = trim((string) ($_POST['url'] ?? ''));
+        $description = trim((string) ($_POST['description'] ?? ''));
+        $category = trim((string) ($_POST['category'] ?? ''));
 
         $sortOrderResult = filter_var(
             $_POST['sort_order'] ?? null,
@@ -115,12 +114,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         if ($title === '') {
             $errors[] = t('admin_links_error_title_required');
-        } elseif (strlen($title) > 120) {
+        } elseif (mb_strlen($title) > 120) {
             $errors[] = t('admin_links_error_title_long');
         }
 
         if (
             $url === ''
+            || mb_strlen($url) > 500
             || !filter_var($url, FILTER_VALIDATE_URL)
         ) {
             $errors[] = t('admin_links_error_url_invalid');
@@ -134,11 +134,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         }
 
-        if (strlen($description) > 255) {
+        if (mb_strlen($description) > 255) {
             $errors[] = t('admin_links_error_description_long');
         }
 
-        if (strlen($category) > 80) {
+        if (mb_strlen($category) > 80) {
             $errors[] = t('admin_links_error_category_long');
         }
 
@@ -183,7 +183,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     'sort_order' => $sortOrder,
                 ]);
 
-                $success = t('admin_links_success_added');
+                logActivity($pdo, 'ADMIN_LINK_CREATED', $adminId, mb_substr($title . ' ' . $url, 0, 500));
+                adminFlash('success', t('admin_links_success_added'));
+                adminRedirect('/masar/admin/university-links.php');
             }
 
             if ($action === 'update') {
@@ -211,7 +213,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     'id' => $editingLinkId,
                 ]);
 
-                $success = t('admin_links_success_updated');
+                logActivity($pdo, 'ADMIN_LINK_UPDATED', $adminId, 'link=' . $editingLinkId . ' ' . mb_substr($title, 0, 200));
+                adminFlash('success', t('admin_links_success_updated'));
+                adminRedirect('/masar/admin/university-links.php');
             }
 
             $isEditing = false;
@@ -244,7 +248,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'id' => $linkId,
             ]);
 
-            $success = t('admin_links_success_status');
+            logActivity($pdo, 'ADMIN_LINK_TOGGLED', $adminId, 'link=' . $linkId);
+            adminFlash('success', t('admin_links_success_status'));
+            adminRedirect('/masar/admin/university-links.php');
         }
     }
 
@@ -266,7 +272,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'id' => $linkId,
             ]);
 
-            $success = t('admin_links_success_deleted');
+            logActivity($pdo, 'ADMIN_LINK_DELETED', $adminId, 'link=' . $linkId);
+            adminFlash('success', t('admin_links_success_deleted'));
+            adminRedirect('/masar/admin/university-links.php');
         }
     }
 }
@@ -385,7 +393,7 @@ require_once __DIR__ . '/../includes/admin-sidebar.php';
                 <input
                     type="hidden"
                     name="csrf_token"
-                    value="<?= htmlspecialchars($_SESSION['csrf_token']) ?>"
+                    value="<?= htmlspecialchars(csrfToken()) ?>"
                 >
 
                 <input
@@ -573,7 +581,7 @@ require_once __DIR__ . '/../includes/admin-sidebar.php';
                                             <input
                                                 type="hidden"
                                                 name="csrf_token"
-                                                value="<?= htmlspecialchars($_SESSION['csrf_token']) ?>"
+                                                value="<?= htmlspecialchars(csrfToken()) ?>"
                                             >
                                             <input type="hidden" name="action" value="toggle">
                                             <input type="hidden" name="link_id" value="<?= (int) $link['id'] ?>">
@@ -602,7 +610,7 @@ require_once __DIR__ . '/../includes/admin-sidebar.php';
                                             <input
                                                 type="hidden"
                                                 name="csrf_token"
-                                                value="<?= htmlspecialchars($_SESSION['csrf_token']) ?>"
+                                                value="<?= htmlspecialchars(csrfToken()) ?>"
                                             >
                                             <input type="hidden" name="action" value="delete">
                                             <input type="hidden" name="link_id" value="<?= (int) $link['id'] ?>">

@@ -11,6 +11,8 @@ $adminName = trim(
     (string) ($_SESSION['full_name'] ?? t('admin_role_label'))
 );
 
+$adminOpenAlerts = isset($pdo) ? adminOpenAlertCount($pdo) : 0;
+
 $adminInitial = 'A';
 
 if (
@@ -61,6 +63,15 @@ if (
             </a>
 
             <a
+                href="/masar/admin/users.php"
+                class="<?= $currentAdminPage === 'users.php'
+                    ? 'is-active'
+                    : '' ?>"
+            >
+                <?= htmlspecialchars(t('admin_users_nav')) ?>
+            </a>
+
+            <a
                 href="/masar/admin/university-links.php"
                 class="<?= $currentAdminPage === 'university-links.php'
                     ? 'is-active'
@@ -75,7 +86,19 @@ if (
                     ? 'is-active'
                     : '' ?>"
             >
-                Activity Log
+                <?= htmlspecialchars(t('admin_activity_nav')) ?>
+            </a>
+
+            <a
+                href="/masar/admin/alerts.php"
+                class="<?= $currentAdminPage === 'alerts.php'
+                    ? 'is-active'
+                    : '' ?>"
+            >
+                <?= htmlspecialchars(t('admin_alerts_nav')) ?>
+                <?php if ($adminOpenAlerts > 0): ?>
+                    <span class="admin-nav-badge"><?= (int) $adminOpenAlerts ?></span>
+                <?php endif; ?>
             </a>
         </nav>
 
@@ -238,6 +261,15 @@ if (
     </a>
 
     <a
+        href="/masar/admin/users.php"
+        class="<?= $currentAdminPage === 'users.php'
+            ? 'is-active'
+            : '' ?>"
+    >
+        <?= htmlspecialchars(t('admin_users_short')) ?>
+    </a>
+
+    <a
         href="/masar/admin/university-links.php"
         class="<?= $currentAdminPage === 'university-links.php'
             ? 'is-active'
@@ -252,6 +284,18 @@ if (
             ? 'is-active'
             : '' ?>"
     >
-        Activity Log
+        <?= htmlspecialchars(t('admin_activity_short')) ?>
+    </a>
+
+    <a
+        href="/masar/admin/alerts.php"
+        class="<?= $currentAdminPage === 'alerts.php'
+            ? 'is-active'
+            : '' ?>"
+    >
+        <?= htmlspecialchars(t('admin_alerts_short')) ?>
+        <?php if ($adminOpenAlerts > 0): ?>
+            <span class="admin-nav-badge"><?= (int) $adminOpenAlerts ?></span>
+        <?php endif; ?>
     </a>
 </nav>

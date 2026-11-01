@@ -35,3 +35,36 @@ function currentDirection(): string
 
     return $translations['direction'] ?? 'ltr';
 }
+/**
+ * A date (optionally with time) in the interface language.
+ * Uses Latin digits in both languages, matching the rest of the UI.
+ */
+function formatLocalizedDate(int $timestamp, bool $withTime = false): string
+{
+    static $arabicMonths = [
+        1 => 'يناير', 'فبراير', 'مارس', 'أبريل', 'مايو', 'يونيو',
+        'يوليو', 'أغسطس', 'سبتمبر', 'أكتوبر', 'نوفمبر', 'ديسمبر',
+    ];
+
+    $day = date('j', $timestamp);
+    $month = (int) date('n', $timestamp);
+    $year = date('Y', $timestamp);
+
+    if (currentLanguage() === 'ar') {
+        $text = $day . ' ' . $arabicMonths[$month] . ' ' . $year;
+
+        if ($withTime) {
+            $text .= '، ' . date('H:i', $timestamp);
+        }
+
+        return $text;
+    }
+
+    $text = date('j M Y', $timestamp);
+
+    if ($withTime) {
+        $text .= ', ' . date('H:i', $timestamp);
+    }
+
+    return $text;
+}
