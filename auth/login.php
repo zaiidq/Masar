@@ -29,6 +29,12 @@ if (($_GET['deleted'] ?? '') === '1') {
     $notice = t('auth_account_deleted');
 }
 
+if (($_GET['registered'] ?? '') === '1') {
+    $notice = t('auth_register_success_login');
+    $email = (string) ($_SESSION['registered_email'] ?? '');
+    unset($_SESSION['registered_email']);
+}
+
 $maxAttempts = max(3, (int) env('LOGIN_MAX_ATTEMPTS', '5'));
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {

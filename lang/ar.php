@@ -538,4 +538,7 @@ return [
 
     /* Admin users fix */
     'admin_users_error_details' => 'تفاصيل الخطأ',
+
+    /* Registration flow */
+    'auth_register_success_login' => 'تم إنشاء حسابك بنجاح. سجّل الدخول للمتابعة.',
 ];
