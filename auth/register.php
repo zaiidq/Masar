@@ -176,7 +176,13 @@ logActivity(
     'role=student'
 );
 
-$success = t('auth_register_success');
+/*
+ * Go straight to the login page with a confirmation and the email
+ * already filled in (Post/Redirect/Get: a refresh never re-submits).
+ */
+$_SESSION['registered_email'] = $email;
+header('Location: /masar/auth/login.php?registered=1');
+exit;
 
             $fullName = '';
             $universityId = '';

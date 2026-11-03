@@ -538,4 +538,7 @@ return [
 
     /* Admin users fix */
     'admin_users_error_details' => 'Error details',
+
+    /* Registration flow */
+    'auth_register_success_login' => 'Your account was created. Sign in to continue.',
 ];

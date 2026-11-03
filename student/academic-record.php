@@ -362,6 +362,22 @@ $historyStatement = $pdo->prepare(
 
 $historyStatement->execute(['user_id' => $userId]);
 $recordHistory = $historyStatement->fetchAll();
+
+/*
+ * A record that was just uploaded is analysed automatically as soon as this
+ * page loads. Show it as "processing" right away, so the student never sees
+ * an "Analyze" button for a record whose analysis is already starting.
+ */
+if ($autoAnalyzeRecordId > 0) {
+    foreach ($recordHistory as $index => $record) {
+        if ((int) $record['id'] === $autoAnalyzeRecordId
+            && $record['status'] === 'uploaded'
+        ) {
+            $recordHistory[$index]['status'] = 'processing';
+        }
+    }
+}
+
 $latestRecord = $recordHistory[0] ?? null;
 
 $currentCourses = [];
@@ -699,7 +715,7 @@ require_once __DIR__ . '/../includes/sidebar.php';
                             </thead>
                             <tbody>
                                 <?php foreach ($recordHistory as $record): ?>
-                                    <tr>
+                                    <tr data-record-id="<?= (int) $record['id'] ?>">
                                         <td class="record-history-file record-data-ltr">
                                             <?= escape($record['original_name']) ?>
 
@@ -829,7 +845,13 @@ document.addEventListener('DOMContentLoaded', function () {
             event.preventDefault();
 
             const button = form.querySelector('button[type="submit"]');
-            const row = form.closest('tr');
+            const recordIdInput = form.querySelector('input[name="record_id"]');
+            const row = form.closest('tr')
+                || (recordIdInput
+                    ? document.querySelector(
+                        'tr[data-record-id="' + recordIdInput.value + '"]'
+                    )
+                    : null);
             const statusBadge = row
                 ? row.querySelector('.record-status')
                 : null;
@@ -873,6 +895,26 @@ document.addEventListener('DOMContentLoaded', function () {
                     throw new Error(messages.serverResponse);
                 }
 
+                /*
+                 * 409 + "processing": the analysis is already running
+                 * (e.g. the automatic one started first). Not an error;
+                 * just wait for it to finish.
+                 */
+                if (response.status === 409 && result.status === 'processing') {
+                    if (button) {
+                        button.hidden = true;
+                    }
+
+                    startStatusPolling();
+                    return;
+                }
+
+                /* Already analysed in another tab: just show the result. */
+                if (response.status === 409 && result.status === 'analyzed') {
+                    window.location.reload();
+                    return;
+                }
+
                 if (!response.ok || !result.success) {
                     throw new Error(
                         result.message || messages.analysisFailed
@@ -881,6 +923,12 @@ document.addEventListener('DOMContentLoaded', function () {
 
                 window.location.reload();
             } catch (error) {
+                /* Keep the error on screen instead of refreshing it away. */
+                if (statusPollTimer !== null) {
+                    window.clearTimeout(statusPollTimer);
+                    statusPollTimer = null;
+                }
+
                 if (progressAlert) {
                     progressAlert.hidden = false;
                     progressAlert.className =
@@ -903,14 +951,41 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     });
 
-    const processingRecord = document.querySelector(
-        '.record-status-processing'
-    );
+    /*
+     * While an analysis is running, ask the server quietly for the status
+     * and refresh the page once nothing is processing any more.
+     */
+    let statusPollTimer = null;
 
-    if (processingRecord) {
-        window.setTimeout(function () {
-            window.location.reload();
-        }, 5000);
+    function startStatusPolling() {
+        if (statusPollTimer !== null) {
+            return;
+        }
+
+        const poll = async function () {
+            try {
+                const response = await fetch(
+                    '/masar/student/record-status.php',
+                    { credentials: 'same-origin', cache: 'no-store' }
+                );
+                const result = await response.json();
+
+                if (result.success && !result.processing) {
+                    window.location.reload();
+                    return;
+                }
+            } catch (error) {
+                /* Temporary network problem: try again on the next tick. */
+            }
+
+            statusPollTimer = window.setTimeout(poll, 4000);
+        };
+
+        statusPollTimer = window.setTimeout(poll, 4000);
+    }
+
+    if (document.querySelector('.record-status-processing')) {
+        startStatusPolling();
     }
 
     /* Course table: first rows only, until the student asks for all. */
