@@ -79,7 +79,7 @@ if (mb_strlen($question) > ASK_MASAR_MAX_MESSAGE_LENGTH) {
     ]);
 }
 
-if (askMasarQuestionsToday($pdo, $userId) >= askMasarDailyLimit()) {
+if (!askMasarReserveQuestion($pdo, $userId)) {
     chatRespond(429, [
         'success' => false,
         'message' => sprintf(t('chat_error_daily_limit'), askMasarDailyLimit()),
@@ -95,6 +95,9 @@ try {
         $interfaceLanguage
     );
 } catch (Throwable $exception) {
+    /* An unanswered question does not count against the daily limit. */
+    askMasarReleaseQuestion($pdo, $userId);
+
     error_log('Ask Masar failed: ' . $exception->getMessage());
 
     $isConfiguration = str_contains($exception->getMessage(), 'not configured');

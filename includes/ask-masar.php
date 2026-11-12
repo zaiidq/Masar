@@ -39,7 +39,10 @@ GROUNDING
 - Never invent courses, prerequisites, grades, credit hours, schedules,
   instructors, or university rules that are not in the context.
 - Masar's recommendations were validated by deterministic checks
-  (prerequisites completed, not already passed, credit-hour limit). When
+  (prerequisites completed or registered this semester, not already
+  passed, credit-hour limit, not more hours than the student still needs).
+  A recommendation marked "conditional on" a course is valid only if the
+  student passes that course this semester; say so when it is relevant. When
   asked why a course was recommended, explain using its reason, its
   requirement type, and its prerequisites from the context.
 - If the context does not contain the answer (e.g. course timetables,
@@ -127,10 +130,10 @@ function buildAskMasarContext(PDO $pdo, int $userId): string
     }
 
     $lines[] = '';
-    $lines[] = 'MASAR RECOMMENDATIONS FOR NEXT SEMESTER (priority | code | name | hours | reason)';
+    $lines[] = 'MASAR RECOMMENDATIONS FOR NEXT SEMESTER (priority | code | name | hours | reason | conditional on passing)';
 
     $recommendationStatement = $pdo->prepare(
-        'SELECT priority, course_code, course_name, credit_hours, reason
+        'SELECT priority, course_code, course_name, credit_hours, reason, conditional_on
          FROM record_recommendations
          WHERE record_id = :record_id
            AND is_accepted = 1
@@ -150,6 +153,7 @@ function buildAskMasarContext(PDO $pdo, int $userId): string
             $item['course_name'],
             (int) $item['credit_hours'],
             $item['reason'] ?? '',
+            $item['conditional_on'] ?: 'none',
         ]);
     }
 
@@ -158,20 +162,64 @@ function buildAskMasarContext(PDO $pdo, int $userId): string
 
 /**
  * Number of questions the student asked today.
+ *
+ * Counted in chat_usage, not from the stored messages, so deleting a
+ * conversation does not give the daily allowance back.
  */
 function askMasarQuestionsToday(PDO $pdo, int $userId): int
 {
     $statement = $pdo->prepare(
-        "SELECT COUNT(*)
-         FROM chat_messages m
-         JOIN chat_sessions s ON s.id = m.session_id
-         WHERE s.user_id = :user_id
-           AND m.role = 'user'
-           AND m.created_at >= CURDATE()"
+        'SELECT questions
+         FROM chat_usage
+         WHERE user_id = :user_id
+           AND usage_date = CURDATE()'
     );
     $statement->execute(['user_id' => $userId]);
 
     return (int) $statement->fetchColumn();
+}
+
+/**
+ * Take one question from today's allowance.
+ *
+ * A single atomic statement, so two requests sent at the same moment
+ * cannot both slip under the limit.
+ *
+ * @return bool False when the allowance is already used up.
+ */
+function askMasarReserveQuestion(PDO $pdo, int $userId): bool
+{
+    $limit = askMasarDailyLimit();
+
+    $pdo->prepare(
+        'INSERT IGNORE INTO chat_usage (user_id, usage_date, questions)
+         VALUES (:user_id, CURDATE(), 0)'
+    )->execute(['user_id' => $userId]);
+
+    $statement = $pdo->prepare(
+        'UPDATE chat_usage
+         SET questions = questions + 1
+         WHERE user_id = :user_id
+           AND usage_date = CURDATE()
+           AND questions < :daily_limit'
+    );
+    $statement->execute(['user_id' => $userId, 'daily_limit' => $limit]);
+
+    return $statement->rowCount() === 1;
+}
+
+/**
+ * Give a reserved question back when the AI service did not answer.
+ */
+function askMasarReleaseQuestion(PDO $pdo, int $userId): void
+{
+    $pdo->prepare(
+        'UPDATE chat_usage
+         SET questions = questions - 1
+         WHERE user_id = :user_id
+           AND usage_date = CURDATE()
+           AND questions > 0'
+    )->execute(['user_id' => $userId]);
 }
 
 function askMasarDailyLimit(): int

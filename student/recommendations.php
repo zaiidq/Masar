@@ -36,6 +36,7 @@ $recordStatement->execute(['user_id' => $userId]);
 $record = $recordStatement->fetch();
 
 $recommendations = [];
+$inProgressNames = [];
 $progress = [];
 $failedCount = 0;
 
@@ -102,6 +103,40 @@ if ($record) {
     }
 
     $failedCount = (int) ($progress['failed']['course_count'] ?? 0);
+
+    /* Names of the in-progress prerequisites some suggestions depend on. */
+    $nameStatement = $pdo->prepare(
+        'SELECT course_code, course_name
+         FROM record_courses
+         WHERE record_id = :record_id
+           AND completion_state = "in_progress"'
+    );
+    $nameStatement->execute(['record_id' => $record['id']]);
+    $inProgressNames = $nameStatement->fetchAll(PDO::FETCH_KEY_PAIR);
+}
+
+/*
+ * True when the courses registered this semester already cover the
+ * official remaining hours, so there is nothing left to plan.
+ */
+$nothingLeftToPlan =
+    $record
+    && $record['remaining_hours'] !== null
+    && (int) $record['remaining_hours']
+        - (int) ($progress['in_progress']['credit_hours'] ?? 0) <= 0;
+
+/**
+ * "0411201 Data Structures, 0411105 ..." for a conditional suggestion.
+ */
+function conditionalCourses(array $item, array $names): string
+{
+    $parts = [];
+
+    foreach (array_filter(explode(',', (string) ($item['conditional_on'] ?? ''))) as $code) {
+        $parts[] = trim($code . ' ' . ($names[$code] ?? ''));
+    }
+
+    return implode(', ', $parts);
 }
 
 $totalRecommendedHours = array_sum(
@@ -286,7 +321,7 @@ require_once __DIR__ . '/../includes/sidebar.php';
 
             <?php if (!$recommendations): ?>
                 <div class="record-empty-inline">
-                    <?= escapeValue(t('recs_no_courses')) ?>
+                    <?= escapeValue(t($nothingLeftToPlan ? 'recs_nothing_left' : 'recs_no_courses')) ?>
                 </div>
             <?php else: ?>
                 <div class="recs-table-wrap">
@@ -332,6 +367,13 @@ require_once __DIR__ . '/../includes/sidebar.php';
                                     <td class="recs-reason">
                                         <?php [$reasonText, $reasonLang, $reasonDir] = localizedReason($item); ?>
                                         <span lang="<?= $reasonLang ?>" dir="<?= $reasonDir ?>"><?= escapeValue($reasonText) ?></span>
+
+                                        <?php if (!empty($item['conditional_on'])): ?>
+                                            <small class="recs-warning recs-conditional">
+                                                <?= escapeValue(t('recs_conditional')) ?>
+                                                <bdi lang="en" dir="ltr"><?= escapeValue(conditionalCourses($item, $inProgressNames)) ?></bdi>
+                                            </small>
+                                        <?php endif; ?>
 
                                         <?php if (!empty($item['has_data_warning'])): ?>
                                             <small class="recs-warning">
@@ -394,6 +436,13 @@ require_once __DIR__ . '/../includes/sidebar.php';
                                 <p lang="<?= $reasonLang ?>" dir="<?= $reasonDir ?>">
                                     <?= escapeValue($reasonText) ?>
                                 </p>
+                            <?php endif; ?>
+
+                            <?php if (!empty($item['conditional_on'])): ?>
+                                <small class="recs-warning recs-conditional">
+                                    <?= escapeValue(t('recs_conditional')) ?>
+                                    <bdi lang="en" dir="ltr"><?= escapeValue(conditionalCourses($item, $inProgressNames)) ?></bdi>
+                                </small>
                             <?php endif; ?>
 
                             <?php if (!empty($item['has_data_warning'])): ?>

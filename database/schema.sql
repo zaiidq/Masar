@@ -199,6 +199,10 @@ CREATE TABLE IF NOT EXISTS `record_recommendations` (
     `rejection_reason` VARCHAR(255)     NULL DEFAULT NULL,
     `has_data_warning` TINYINT(1)       NOT NULL DEFAULT 0,
 
+    /* Prerequisite codes still in progress: the suggestion holds only
+       if the student passes them this semester. */
+    `conditional_on`   VARCHAR(255)     NULL DEFAULT NULL,
+
     `created_at`       TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     PRIMARY KEY (`id`),
@@ -243,6 +247,24 @@ CREATE TABLE IF NOT EXISTS `chat_messages` (
 
     CONSTRAINT `fk_chat_messages_session`
         FOREIGN KEY (`session_id`) REFERENCES `chat_sessions` (`id`)
+        ON DELETE CASCADE
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
+
+-- ------------------------------------------------------------
+--  chat_usage — Ask Masar questions per student per day.
+--  Kept apart from chat_messages so deleting a conversation does
+--  not reset the daily limit.
+-- ------------------------------------------------------------
+
+CREATE TABLE IF NOT EXISTS `chat_usage` (
+    `user_id`    INT UNSIGNED      NOT NULL,
+    `usage_date` DATE              NOT NULL,
+    `questions`  SMALLINT UNSIGNED NOT NULL DEFAULT 0,
+
+    PRIMARY KEY (`user_id`, `usage_date`),
+
+    CONSTRAINT `fk_chat_usage_user`
+        FOREIGN KEY (`user_id`) REFERENCES `users` (`id`)
         ON DELETE CASCADE
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
 

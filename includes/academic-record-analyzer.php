@@ -9,7 +9,7 @@ require_once __DIR__ . '/gemini-client.php';
  * Bump this whenever the prompt or schema below changes.
  * Stored per record so past analyses stay explainable.
  */
-const MASAR_PROMPT_VERSION = 'v6';
+const MASAR_PROMPT_VERSION = 'v7';
 
 /**
  * Instructions given to the model on every analysis.
@@ -209,6 +209,10 @@ A student is graduating when the official remaining hours, minus the hours
 of courses currently in progress, fit within the graduating limit. Only
 then may the plan use the graduating limit; otherwise use the normal limit.
 
+Never recommend more hours than the student still needs: once the plan
+covers the official remaining hours minus the hours currently in progress,
+stop adding courses.
+
 The limit is a MAXIMUM, not a target.
 
 Do not add unnecessary courses merely to reach the limit.
@@ -255,10 +259,16 @@ before.
 A recommended course must not violate prerequisite requirements shown in
 the Academic Record.
 
-Every prerequisite of a recommended course must be completed.
+Every prerequisite of a recommended course must be either completed or
+currently in progress.
 
-Do not assume that an in-progress, failed, or remaining prerequisite counts
-as completed.
+The plan is for the NEXT semester, so a prerequisite the student is
+registered in this semester is expected to be finished by then. You may
+recommend a course whose prerequisite is in progress, but its reason must
+say that the recommendation depends on passing that prerequisite this
+semester.
+
+A failed or remaining prerequisite never counts.
 
 Never invent prerequisite relationships that are not present in the
 Academic Record.
@@ -756,6 +766,10 @@ $prerequisites =
  * unique key and make the whole analysis fail. Priorities are numbered
  * over accepted suggestions only, so the student always sees 1, 2, 3 ...
  *
+ * $neededHours is what the student still has to register to graduate
+ * (official remaining hours minus hours in progress), or null when the
+ * record did not give a trustworthy figure.
+ *
  * @param  array<int, array<string, mixed>>  $recommendations
  * @param  array<string, array<string, mixed>>  $deterministicFacts
  * @param  array<string, array<string, mixed>>  $coursesByCode
@@ -765,7 +779,8 @@ function validateRecommendations(
     array $recommendations,
     array $deterministicFacts,
     array $coursesByCode,
-    int $maximumHours = 18
+    int $maximumHours = 18,
+    ?int $neededHours = null
 ): array {
     $validated = [];
     $seenCodes = [];
@@ -816,8 +831,13 @@ function validateRecommendations(
         }
 
         /*
-         * Rule 3: every prerequisite must be deterministically completed.
+         * Rule 3: every prerequisite must be completed, or registered
+         * this semester. The plan is for the next semester, so a course
+         * in progress is expected to be finished by then; the suggestion
+         * is kept but marked as conditional on passing it.
          */
+        $conditionalOn = [];
+
         if ($rejection === null && $fact !== null) {
             $unmet = [];
 
@@ -827,10 +847,12 @@ function validateRecommendations(
                 $prerequisite =
                     $deterministicFacts[$prerequisiteCode] ?? null;
 
-                if (
-                    $prerequisite === null
-                    || $prerequisite['completion_state'] !== 'completed'
-                ) {
+                $prerequisiteState =
+                    $prerequisite['completion_state'] ?? null;
+
+                if ($prerequisiteState === 'in_progress') {
+                    $conditionalOn[] = $prerequisiteCode;
+                } elseif ($prerequisiteState !== 'completed') {
                     $unmet[] = $prerequisiteCode;
                 }
             }
@@ -864,6 +886,24 @@ function validateRecommendations(
                 'Exceeds the %d-credit-hour limit for this semester.',
                 $maximumHours
             );
+        }
+
+        /*
+         * Rule 6: stop once the plan covers what the student still needs.
+         * A course that crosses the figure is allowed (5 hours left and
+         * only 3-hour courses means two courses), one beyond it is not.
+         */
+        if (
+            $rejection === null
+            && $neededHours !== null
+            && $acceptedHours >= $neededHours
+        ) {
+            $rejection = $neededHours <= 0
+                ? 'Not needed: the courses in progress already cover the remaining graduation hours.'
+                : sprintf(
+                    'Not needed: the plan already covers the %d remaining graduation hours.',
+                    $neededHours
+                );
         }
 
         if ($rejection === null) {
@@ -906,6 +946,9 @@ function validateRecommendations(
                 : null,
             'has_data_warning' =>
                 !empty($fact['source_conflict']) ? 1 : 0,
+            'conditional_on' => $rejection === null && $conditionalOn !== []
+                ? mb_substr(implode(',', $conditionalOn), 0, 255)
+                : null,
         ];
     }
 
@@ -1135,6 +1178,195 @@ function normaliseSummary(array $summary): array
 }
 
 /**
+ * Read the official summary figures straight from the reconstructed PDF
+ * rows, independently from Gemini.
+ *
+ * Two layouts are understood:
+ *   - label and value side by side:  "Remain Hrs | 12"  or  "GPA: 3.10"
+ *   - a row of labels followed by a row of values in the same order
+ *     (also a single label whose value sits on the next row)
+ *
+ * A figure that is found twice with different values is ambiguous and is
+ * left out. Anything not found stays null, and the caller falls back to
+ * the model's value after checking it (see reconcileSummaryWithRecord).
+ *
+ * @return array<string, int|float|null>
+ */
+function extractDeterministicSummary(string $rows): array
+{
+    $labels = [
+        'plan_hours' => '/^Plan\s*H(?:ou)?rs?\.?$/i',
+        'graded_hours' => '/^Graded\s*H(?:ou)?rs?\.?$/i',
+        'earned_hours' => '/^(?:Earned|Passed|Pass)\s*H(?:ou)?rs?\.?$/i',
+        'attempted_hours' => '/^Attempt(?:ed)?\s*H(?:ou)?rs?\.?$/i',
+        'remaining_hours' => '/^Remain(?:ing)?\s*H(?:ou)?rs?\.?$/i',
+        'gpa' => '/^(?:(?:Cumulative|Cum\.?|Acc\.?|Accumulative)\s*)?GPA$/i',
+    ];
+
+    $parseValue = static function (string $field, string $text) {
+        $text = trim($text);
+
+        if ($field === 'gpa') {
+            if (!preg_match('/^\d{1,2}(?:\.\d{1,2})?$/', $text)) {
+                return null;
+            }
+
+            $value = round((float) $text, 2);
+
+            return $value <= 99.99 ? $value : null;
+        }
+
+        if (!preg_match('/^\d{1,3}$/', $text)) {
+            return null;
+        }
+
+        return (int) $text;
+    };
+
+    $found = [];
+    $ambiguous = [];
+
+    $record = static function (string $field, $value) use (&$found, &$ambiguous): void {
+        if (isset($ambiguous[$field])) {
+            return;
+        }
+
+        if (array_key_exists($field, $found) && $found[$field] != $value) {
+            unset($found[$field]);
+            $ambiguous[$field] = true;
+
+            return;
+        }
+
+        $found[$field] = $value;
+    };
+
+    $lines = array_values(array_filter(
+        array_map('trim', preg_split('/\R/u', $rows) ?: []),
+        static fn (string $line): bool => $line !== ''
+    ));
+
+    foreach ($lines as $lineIndex => $line) {
+        /* Course rows never carry summary figures. */
+        if (preg_match('/^A?\d{7}\s*\|/i', $line)) {
+            continue;
+        }
+
+        $columns = array_map('trim', explode('|', $line));
+        $pending = [];
+
+        foreach ($columns as $index => $column) {
+            $labelText = $column;
+            $inlineValue = null;
+
+            /* "Label: 12" or "Label 12" inside one fragment. */
+            if (preg_match('/^(.*?\p{L})\s*[:=]?\s*(\d+(?:\.\d+)?)$/u', $column, $match)) {
+                $labelText = trim($match[1]);
+                $inlineValue = $match[2];
+            }
+
+            $labelText = rtrim($labelText, " :=\t");
+
+            foreach ($labels as $field => $pattern) {
+                if (!preg_match($pattern, $labelText)) {
+                    continue;
+                }
+
+                $value = null;
+
+                if ($inlineValue !== null) {
+                    $value = $parseValue($field, $inlineValue);
+                } elseif (isset($columns[$index + 1])) {
+                    $value = $parseValue($field, ltrim($columns[$index + 1], ': '));
+                }
+
+                if ($value !== null) {
+                    $record($field, $value);
+                } else {
+                    $pending[] = $field;
+                }
+
+                break;
+            }
+        }
+
+        /* Labels without a value on their own row: values on the next row. */
+        if ($pending !== [] && isset($lines[$lineIndex + 1])) {
+            $nextColumns = array_map('trim', explode('|', $lines[$lineIndex + 1]));
+
+            if (count($nextColumns) === count($pending)) {
+                $values = [];
+
+                foreach ($pending as $position => $field) {
+                    $values[$field] = $parseValue($field, $nextColumns[$position]);
+                }
+
+                if (!in_array(null, $values, true)) {
+                    foreach ($values as $field => $value) {
+                        $record($field, $value);
+                    }
+                }
+            }
+        }
+    }
+
+    $summary = [];
+
+    foreach (array_keys($labels) as $field) {
+        $summary[$field] = $found[$field] ?? null;
+    }
+
+    return $summary;
+}
+
+/**
+ * Make the summary figures trustworthy.
+ *
+ * A figure read directly from the PDF always wins over the model's.
+ * A figure only the model supplied is kept only if that exact number is
+ * printed somewhere in the record outside the course rows; otherwise it
+ * was invented or mis-derived, and is dropped so the interface shows it
+ * as missing instead of presenting a wrong official number.
+ *
+ * @param  array<string, mixed>  $summary  Output of normaliseSummary().
+ * @return array<string, mixed>
+ */
+function reconcileSummaryWithRecord(array $summary, string $rows): array
+{
+    $deterministic = extractDeterministicSummary($rows);
+
+    $printedNumbers = [];
+
+    foreach (preg_split('/\R/u', $rows) ?: [] as $line) {
+        if (preg_match('/^\s*A?\d{7}\s*\|/i', $line)) {
+            continue;
+        }
+
+        if (preg_match_all('/(?<![\d.])\d+(?:\.\d+)?(?![\d.])/', $line, $matches)) {
+            foreach ($matches[0] as $number) {
+                $printedNumbers[(string) (float) $number] = true;
+            }
+        }
+    }
+
+    foreach ($deterministic as $field => $value) {
+        if ($value !== null) {
+            $summary[$field] = $value;
+            continue;
+        }
+
+        if (
+            $summary[$field] !== null
+            && !isset($printedNumbers[(string) (float) $summary[$field]])
+        ) {
+            $summary[$field] = null;
+        }
+    }
+
+    return $summary;
+}
+
+/**
  * Run the full analysis pipeline for one uploaded record.
  *
  * Extract rows -> redact -> ask the model -> validate -> store.
@@ -1199,7 +1431,10 @@ function analyzeAcademicRecord(
         academicRecordResponseSchema()
     );
 
-    $summary = normaliseSummary((array) ($result['summary'] ?? []));
+    $summary = reconcileSummaryWithRecord(
+        normaliseSummary((array) ($result['summary'] ?? [])),
+        $rows
+    );
     $rawCourses = (array) ($result['courses'] ?? []);
 
     if ($rawCourses === []) {
@@ -1281,11 +1516,17 @@ function analyzeAcademicRecord(
         $inProgressHours
     );
 
+    /* What the student still has to register after this semester. */
+    $neededHours = $summary['remaining_hours'] !== null
+        ? max(0, (int) $summary['remaining_hours'] - $inProgressHours)
+        : null;
+
     $recommendations = validateRecommendations(
         (array) ($result['recommended_courses'] ?? []),
         $deterministicFacts,
         $coursesByCode,
-        $creditLimit['limit']
+        $creditLimit['limit'],
+        $neededHours
     );
 
     $pdo->beginTransaction();
@@ -1342,11 +1583,11 @@ function analyzeAcademicRecord(
             'INSERT INTO record_recommendations (
                 record_id, course_code, course_name, credit_hours,
                 priority, reason, reason_ar, is_accepted, rejection_reason,
-                has_data_warning
+                has_data_warning, conditional_on
             ) VALUES (
                 :record_id, :course_code, :course_name, :credit_hours,
                 :priority, :reason, :reason_ar, :is_accepted, :rejection_reason,
-                :has_data_warning
+                :has_data_warning, :conditional_on
             )'
         );
 
@@ -1364,6 +1605,7 @@ function analyzeAcademicRecord(
                 'is_accepted' => $recommendation['is_accepted'],
                 'rejection_reason' => $recommendation['rejection_reason'],
                 'has_data_warning' => $recommendation['has_data_warning'],
+                'conditional_on' => $recommendation['conditional_on'],
             ]);
         }
 

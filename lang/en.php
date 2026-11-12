@@ -541,4 +541,8 @@ return [
 
     /* Registration flow */
     'auth_register_success_login' => 'Your account was created. Sign in to continue.',
+
+    /* Plan accuracy */
+    'recs_conditional' => 'Depends on passing this semester:',
+    'recs_nothing_left' => 'The courses you are registered in this semester already cover your remaining graduation hours, so there is nothing to plan for next semester.',
 ];

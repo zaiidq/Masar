@@ -541,4 +541,8 @@ return [
 
     /* Registration flow */
     'auth_register_success_login' => 'تم إنشاء حسابك بنجاح. سجّل الدخول للمتابعة.',
+
+    /* Plan accuracy */
+    'recs_conditional' => 'مشروطة بالنجاح هذا الفصل في:',
+    'recs_nothing_left' => 'المواد المسجّلة هذا الفصل تغطي ساعات التخرج المتبقية، فلا توجد مواد لتخطيطها للفصل القادم.',
 ];

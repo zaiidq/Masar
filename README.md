@@ -126,12 +126,28 @@ sudo mysqldump masar_db > ~/masar_backup_before_v2.sql
 sudo mysql masar_db < database/migrations/2026_11_01_masar_v2_upgrade.sql
 sudo mysql masar_db < database/seed.sql
 sudo mysql masar_db < database/migrations/2026_11_02_bilingual_links.sql
+sudo mysql masar_db < database/migrations/2026_11_12_plan_accuracy.sql
 ```
+
+The last one (`2026_11_12_plan_accuracy.sql`) is required for any
+installation older than 12 November 2026: analysis and Ask Masar fail
+until it has been run.
 
 The migrations add the new columns and the Ask Masar / alerts tables
 without touching existing data; re-running the seed fills in the Arabic
 faculty and major names. Re-analyse a record (or re-plan from the
 Recommendations page) to get Arabic recommendation reasons.
+
+## Known limitations
+
+- **Login lockout is per IP address.** After `LOGIN_MAX_ATTEMPTS` failed
+  logins from one address, that address is blocked for 15 minutes. Behind
+  Tailscale Funnel (or any reverse proxy) every visitor reaches Apache
+  from the same address, so a few wrong passwords from anyone block
+  sign-in for everyone until the 15 minutes pass. This is accepted while
+  Masar is only reachable through Tailscale. Before a wider deployment,
+  either set `TRUST_PROXY=1` (only if the proxy overwrites
+  `X-Forwarded-For`) or change the limit to count per account as well.
 
 ## Configuration (`.env`)
 
