@@ -54,6 +54,8 @@ CREATE TABLE IF NOT EXISTS `users` (
     `full_name`          VARCHAR(100) NOT NULL,
     `email`              VARCHAR(150) NOT NULL,
     `password`           VARCHAR(255) NOT NULL,
+    /* Sessions opened before this moment are signed out. */
+    `password_changed_at` DATETIME    NULL DEFAULT NULL,
     `university_id`      VARCHAR(30)  NULL DEFAULT NULL,
     `faculty_id`         INT UNSIGNED NULL DEFAULT NULL,
     `major_id`           INT UNSIGNED NULL DEFAULT NULL,
@@ -74,6 +76,30 @@ CREATE TABLE IF NOT EXISTS `users` (
     CONSTRAINT `fk_users_major`
         FOREIGN KEY (`major_id`) REFERENCES `majors` (`id`)
         ON DELETE SET NULL
+) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
+
+-- ------------------------------------------------------------
+--  password_resets — single-use, expiring reset links.
+--  Only a SHA-256 hash of the token is stored, so a copy of the
+--  database cannot be used to reset anyone's password.
+-- ------------------------------------------------------------
+
+CREATE TABLE IF NOT EXISTS `password_resets` (
+    `id`         INT UNSIGNED NOT NULL AUTO_INCREMENT,
+    `user_id`    INT UNSIGNED NOT NULL,
+    `token_hash` CHAR(64)     NOT NULL,
+    `expires_at` DATETIME     NOT NULL,
+    `used_at`    DATETIME     NULL DEFAULT NULL,
+    `created_by` INT UNSIGNED NULL DEFAULT NULL,
+    `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    PRIMARY KEY (`id`),
+    UNIQUE KEY `uq_password_resets_token` (`token_hash`),
+    KEY `idx_password_resets_user` (`user_id`, `created_at`),
+
+    CONSTRAINT `fk_password_resets_user`
+        FOREIGN KEY (`user_id`) REFERENCES `users` (`id`)
+        ON DELETE CASCADE
 ) ENGINE = InnoDB DEFAULT CHARSET = utf8mb4 COLLATE = utf8mb4_unicode_ci;
 
 -- ------------------------------------------------------------

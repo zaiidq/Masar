@@ -29,6 +29,12 @@ if (($_GET['deleted'] ?? '') === '1') {
     $notice = t('auth_account_deleted');
 }
 
+if (($_GET['reset'] ?? '') === '1') {
+    $notice = t('auth_reset_done');
+    $email = (string) ($_SESSION['registered_email'] ?? '');
+    unset($_SESSION['registered_email']);
+}
+
 if (($_GET['registered'] ?? '') === '1') {
     $notice = t('auth_register_success_login');
     $email = (string) ($_SESSION['registered_email'] ?? '');
@@ -60,7 +66,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         );
     } else {
         $stmt = $pdo->prepare(
-            'SELECT id, full_name, email, password, role, preferred_language
+            'SELECT id, full_name, email, password, role, preferred_language,
+                    password_changed_at
              FROM users
              WHERE email = :email
              LIMIT 1'
@@ -79,6 +86,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $_SESSION['full_name'] = $user['full_name'];
             $_SESSION['role'] = $user['role'];
             $_SESSION['language'] = $user['preferred_language'];
+            $_SESSION['password_changed_at'] = (string) ($user['password_changed_at'] ?? '');
             unset($_SESSION['csrf_token']);
 
             if (password_needs_rehash($user['password'], PASSWORD_DEFAULT)) {
@@ -252,6 +260,10 @@ $languageSwitchUrl = '/masar/switch-language.php?lang='
                         </button>
                     </div>
                 </div>
+
+                <p class="auth-forgot-new">
+                    <a href="/masar/auth/forgot-password.php"><?= htmlspecialchars(t('auth_forgot_link')) ?></a>
+                </p>
 
                 <button type="submit" class="auth-submit-new">
                     <?= htmlspecialchars(t('auth_login_action')) ?>

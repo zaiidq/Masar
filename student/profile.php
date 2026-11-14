@@ -6,6 +6,7 @@ require_once __DIR__ . '/../includes/auth_check.php';
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../includes/language.php';
 require_once __DIR__ . '/../includes/activity-logger.php';
+require_once __DIR__ . '/../includes/password-reset.php';
 
 if (($_SESSION['role'] ?? '') !== 'student') {
     header('Location: ../admin/dashboard.php');
@@ -15,6 +16,8 @@ if (($_SESSION['role'] ?? '') !== 'student') {
 csrfToken();
 
 $errors = [];
+$passwordErrors = [];
+$passwordSuccess = '';
 $deleteErrors = [];
 $success = '';
 
@@ -111,6 +114,54 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'delete_account') {
 
         header('Location: /masar/auth/login.php?deleted=1');
         exit;
+    }
+}
+
+/*
+ * Change password: needs the current password, and signs out every
+ * other device that is logged in to this account.
+ */
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && $action === 'change_password') {
+    $currentPassword = (string) ($_POST['current_password'] ?? '');
+    $newPassword = (string) ($_POST['new_password'] ?? '');
+    $confirmNewPassword = (string) ($_POST['confirm_new_password'] ?? '');
+
+    $passwordStatement = $pdo->prepare('SELECT password FROM users WHERE id = :id');
+    $passwordStatement->execute(['id' => $_SESSION['user_id']]);
+    $passwordHash = (string) $passwordStatement->fetchColumn();
+
+    if (!verifyCsrf()) {
+        $passwordErrors[] = t('profile_error_invalid_request');
+    } elseif (!password_verify($currentPassword, $passwordHash)) {
+        $passwordErrors[] = t('profile_password_wrong_current');
+
+        logActivity($pdo, 'PASSWORD_CHANGE_FAILED', (int) $_SESSION['user_id'], 'wrong current password');
+    } else {
+        if (strlen($newPassword) < PASSWORD_MIN_LENGTH) {
+            $passwordErrors[] = t('auth_error_password_length');
+        }
+
+        if ($newPassword !== $confirmNewPassword) {
+            $passwordErrors[] = t('auth_error_password_match');
+        }
+
+        if (!$passwordErrors && password_verify($newPassword, $passwordHash)) {
+            $passwordErrors[] = t('profile_password_same');
+        }
+
+        if (!$passwordErrors) {
+            /* This session stays signed in; all others are signed out. */
+            $_SESSION['password_changed_at'] = setUserPassword(
+                $pdo,
+                (int) $_SESSION['user_id'],
+                $newPassword
+            );
+            session_regenerate_id(true);
+
+            logActivity($pdo, 'PASSWORD_CHANGED', (int) $_SESSION['user_id']);
+
+            $passwordSuccess = t('profile_password_changed');
+        }
     }
 }
 
@@ -339,6 +390,58 @@ require_once __DIR__ . '/../includes/sidebar.php';
             <p><?= htmlspecialchars(t('profile_account_note')) ?></p>
         </aside>
     </div>
+
+    <section class="profile-form-panel-new profile-password-panel" id="change-password">
+        <div class="record-section-heading">
+            <h2><?= htmlspecialchars(t('profile_password_title')) ?></h2>
+        </div>
+
+        <p class="profile-password-panel__note"><?= htmlspecialchars(t('profile_password_note')) ?></p>
+
+        <?php if ($passwordErrors): ?>
+            <div class="record-alert record-alert--error" role="alert">
+                <ul>
+                    <?php foreach ($passwordErrors as $error): ?>
+                        <li><?= htmlspecialchars($error) ?></li>
+                    <?php endforeach; ?>
+                </ul>
+            </div>
+        <?php endif; ?>
+
+        <?php if ($passwordSuccess !== ''): ?>
+            <div class="record-alert record-alert--success" role="status">
+                <?= htmlspecialchars($passwordSuccess) ?>
+            </div>
+        <?php endif; ?>
+
+        <form method="POST" action="#change-password" class="profile-form-new">
+            <?= csrfField() ?>
+            <input type="hidden" name="action" value="change_password">
+
+            <div class="profile-form-grid-new">
+                <div class="profile-field-new profile-field-new--wide">
+                    <label for="current_password"><?= htmlspecialchars(t('profile_password_current')) ?></label>
+                    <input type="password" id="current_password" name="current_password" autocomplete="current-password" required>
+                </div>
+
+                <div class="profile-field-new">
+                    <label for="new_password"><?= htmlspecialchars(t('auth_new_password')) ?></label>
+                    <input type="password" id="new_password" name="new_password" autocomplete="new-password" minlength="8" required>
+                </div>
+
+                <div class="profile-field-new">
+                    <label for="confirm_new_password"><?= htmlspecialchars(t('auth_confirm_new_password')) ?></label>
+                    <input type="password" id="confirm_new_password" name="confirm_new_password" autocomplete="new-password" minlength="8" required>
+                </div>
+            </div>
+
+            <div class="profile-actions-new">
+                <button type="submit" class="path-button profile-save-new">
+                    <?= htmlspecialchars(t('profile_password_action')) ?>
+                </button>
+            </div>
+        </form>
+    </section>
 
     <section class="profile-danger-zone" id="delete-account">
         <div class="profile-danger-zone__copy">

@@ -127,11 +127,12 @@ sudo mysql masar_db < database/migrations/2026_11_01_masar_v2_upgrade.sql
 sudo mysql masar_db < database/seed.sql
 sudo mysql masar_db < database/migrations/2026_11_02_bilingual_links.sql
 sudo mysql masar_db < database/migrations/2026_11_12_plan_accuracy.sql
+sudo mysql masar_db < database/migrations/2026_11_13_account_features.sql
 ```
 
-The last one (`2026_11_12_plan_accuracy.sql`) is required for any
-installation older than 12 November 2026: analysis and Ask Masar fail
-until it has been run.
+The last two are required for any installation older than 13 November
+2026: without `2026_11_12_plan_accuracy.sql` analysis and Ask Masar fail,
+and without `2026_11_13_account_features.sql` nobody can sign in.
 
 The migrations add the new columns and the Ask Masar / alerts tables
 without touching existing data; re-running the seed fills in the Arabic
@@ -161,6 +162,18 @@ Recommendations page) to get Arabic recommendation reasons.
 | `CHAT_DAILY_LIMIT` | `30` | Ask Masar questions per student per day |
 | `LOGIN_MAX_ATTEMPTS` | `5` | Failed logins per IP per 15 minutes |
 | `TRUST_PROXY` | `0` | Trust `X-Forwarded-For` (only behind your own proxy) |
+| `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD` | empty, `587` | Mail server for password reset links; empty host switches email off |
+| `MAIL_FROM`, `MAIL_FROM_NAME` | `SMTP_USER`, `Masar` | Sender of those emails |
+| `APP_URL` | detected | Public address used in emailed links (set it behind a proxy) |
+
+### Password reset
+
+A student who forgets their password uses "Forgot your password?" on the
+sign-in page and receives a link that works once and expires after 60
+minutes. Without a mail server (`SMTP_HOST` empty) the request appears
+under Alerts instead, and an administrator creates the link with
+**Reset link** on the Users page and passes it to the student. Changing
+or resetting a password signs the account out on every other device.
 
 ## Backups
 

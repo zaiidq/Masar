@@ -3,6 +3,7 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/../includes/admin-common.php';
+require_once __DIR__ . '/../includes/password-reset.php';
 
 $adminId = (int) $_SESSION['user_id'];
 
@@ -53,6 +54,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         );
 
         adminFlash('success', sprintf(t('admin_users_role_changed'), $target['full_name']));
+        adminRedirect($returnUrl);
+    }
+
+    /*
+     * One-time password reset link, for a user who cannot receive the
+     * email (or when email is not configured). The administrator passes
+     * the link on; the administrator never sees or sets the password.
+     */
+    if ($action === 'reset_link') {
+        $link = createPasswordResetLink($pdo, $targetId, $adminId);
+
+        logActivity(
+            $pdo,
+            'ADMIN_RESET_LINK_ISSUED',
+            $adminId,
+            sprintf('user=%d (%s)', $targetId, $target['email'])
+        );
+
+        adminFlash(
+            'success',
+            sprintf(t('admin_users_reset_link_ready'), $target['full_name'], PASSWORD_RESET_MINUTES)
+        );
+        $_SESSION['admin_flash']['link'] = $link;
+
         adminRedirect($returnUrl);
     }
 
@@ -201,6 +226,19 @@ require_once __DIR__ . '/../includes/admin-sidebar.php';
     <?php if ($flash): ?>
         <div class="admin-notice-new admin-notice-new--<?= $flash['type'] === 'success' ? 'success' : 'error' ?>" role="status">
             <?= adminEscape($flash['message']) ?>
+
+            <?php if (!empty($flash['link'])): ?>
+                <label class="visually-hidden" for="reset-link"><?= adminEscape(t('admin_users_reset_link')) ?></label>
+                <input
+                    type="text"
+                    id="reset-link"
+                    class="admin-reset-link"
+                    value="<?= adminEscape($flash['link']) ?>"
+                    dir="ltr"
+                    readonly
+                    onfocus="this.select()"
+                >
+            <?php endif; ?>
         </div>
     <?php endif; ?>
 
@@ -311,6 +349,16 @@ require_once __DIR__ . '/../includes/admin-sidebar.php';
                                             )) ?>);"
                                         >
                                             <?= adminEscape($user['role'] === 'admin' ? t('admin_users_demote') : t('admin_users_promote')) ?>
+                                        </button>
+                                    </form>
+
+                                    <form method="POST" action="/masar/admin/users.php">
+                                        <?= csrfField() ?>
+                                        <input type="hidden" name="action" value="reset_link">
+                                        <input type="hidden" name="user_id" value="<?= (int) $user['id'] ?>">
+                                        <input type="hidden" name="return_query" value="<?= adminEscape($currentQuery) ?>">
+                                        <button type="submit" class="admin-row-action-new">
+                                            <?= adminEscape(t('admin_users_reset_link')) ?>
                                         </button>
                                     </form>
 

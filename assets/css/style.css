@@ -1273,7 +1273,8 @@ html[lang="ar"] .path-next__hint {
 
     border-radius: 3px;
 
-    background: var(--path-forest);
+    /* Fallbacks: the button is also used outside .path-page. */
+    background: var(--path-forest, #2e5e4e);
 
     color: #ffffff;
     font-size: 13px;
@@ -1285,7 +1286,7 @@ html[lang="ar"] .path-next__hint {
 
 .path-button:hover,
 .path-button:focus-visible {
-    background: var(--path-forest-dark);
+    background: var(--path-forest-dark, #24493d);
 }
 
 html[lang="ar"] .path-button {
@@ -4259,6 +4260,7 @@ html[lang="ar"] .admin-links-list-new__heading h2 {
 }
 
 .admin-field-new input,
+.admin-field-new select,
 .admin-field-new textarea {
     inline-size: 100%;
     padding-block: 11px;
@@ -4273,7 +4275,8 @@ html[lang="ar"] .admin-links-list-new__heading h2 {
     transition: border-color 0.15s ease, box-shadow 0.15s ease;
 }
 
-.admin-field-new input {
+.admin-field-new input,
+.admin-field-new select {
     min-block-size: 46px;
 }
 
@@ -4284,6 +4287,7 @@ html[lang="ar"] .admin-links-list-new__heading h2 {
 }
 
 .admin-field-new input:focus,
+.admin-field-new select:focus,
 .admin-field-new textarea:focus {
     border-color: var(--admin-forest);
     box-shadow: 0 0 0 3px rgba(46, 94, 78, 0.08);
@@ -7106,4 +7110,148 @@ html[data-theme="dark"] .admin-links-empty-new img {
     .admin-users-table .admin-table-actions-new {
         display: grid !important;
     }
+}
+
+/* =========================================================
+   Password pages, record delete, faculties admin
+   ========================================================= */
+
+.auth-forgot-new {
+    margin: -6px 0 0;
+    font-size: 12.5px;
+    text-align: end;
+}
+
+.auth-forgot-new a {
+    color: var(--ui-muted, #667085);
+}
+
+.auth-forgot-new a:hover,
+.auth-forgot-new a:focus-visible {
+    color: inherit;
+    text-decoration: underline;
+}
+
+.auth-field-new small {
+    display: block;
+    margin-block-start: 6px;
+    color: var(--ui-muted, #667085);
+    font-size: 12px;
+}
+
+.profile-password-panel {
+    margin-block-start: 32px;
+}
+
+.profile-password-panel__note {
+    margin: 12px 0 18px;
+    color: var(--ui-muted, #667085);
+    font-size: 13px;
+}
+
+.record-delete-form {
+    display: inline-block;
+}
+
+.retry-analysis-form:not([hidden]) {
+    display: inline-block;
+    margin-inline-end: 6px;
+}
+
+.record-delete-button {
+    padding: 5px 10px;
+    border: 1px solid transparent;
+    background: transparent;
+    color: var(--ui-muted, #667085);
+    font: inherit;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.record-delete-button:hover,
+.record-delete-button:focus-visible {
+    border-color: #e2cdc3;
+    color: #9a4b3f;
+}
+
+html[data-theme="dark"] .record-delete-button:hover,
+html[data-theme="dark"] .record-delete-button:focus-visible {
+    border-color: #5b4037;
+    color: #e3a083;
+}
+
+.admin-reset-link {
+    display: block;
+    inline-size: 100%;
+    margin-block-start: 10px;
+    padding: 8px 10px;
+    border: 1px solid var(--color-border);
+    background: var(--color-surface);
+    color: inherit;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 12px;
+}
+
+.admin-faculties-editor__second {
+    margin-block-start: 36px;
+    padding-block-start: 28px;
+    border-block-start: 1px solid var(--color-border);
+}
+
+.admin-faculty-card {
+    margin-block-end: 16px;
+    border: 1px solid var(--color-border);
+    background: var(--color-surface);
+}
+
+.admin-faculty-card__header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    padding: 14px 16px;
+    border-block-end: 1px solid var(--color-border);
+}
+
+.admin-faculty-card__empty {
+    margin: 0;
+    padding: 14px 16px;
+    color: var(--admin-muted, #667085);
+    font-size: 13px;
+}
+
+.admin-major-list {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.admin-major-list li {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 16px;
+    padding: 10px 16px;
+}
+
+.admin-major-list li + li {
+    border-block-start: 1px solid var(--color-border);
+}
+
+.admin-major-list .admin-link-title-cell-new {
+    flex: 1 1 220px;
+    min-inline-size: 0;
+}
+
+.admin-faculty-card .admin-table-actions-new {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 6px;
+}
+
+.admin-faculty-card .admin-table-actions-new form {
+    margin: 0;
 }

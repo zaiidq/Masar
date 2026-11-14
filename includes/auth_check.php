@@ -21,10 +21,23 @@ if (!isset($_SESSION['user_id'])) {
  * without the user signing in again.
  */
 $authStatement = $pdo->prepare(
-    'SELECT role, full_name, preferred_language FROM users WHERE id = :id'
+    'SELECT role, full_name, preferred_language, password_changed_at
+     FROM users WHERE id = :id'
 );
 $authStatement->execute(['id' => (int) $_SESSION['user_id']]);
 $authUser = $authStatement->fetch();
+
+/*
+ * A password change or reset signs out every other session: only the
+ * session that knows the current change time stays valid.
+ */
+if (
+    $authUser
+    && (string) ($authUser['password_changed_at'] ?? '')
+        !== (string) ($_SESSION['password_changed_at'] ?? '')
+) {
+    $authUser = false;
+}
 
 if (!$authUser) {
     $_SESSION = [];

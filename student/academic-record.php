@@ -110,6 +110,67 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $targetSemester = 'regular';
     }
 
+    /*
+     * Delete one uploaded record: its PDF, extracted courses and
+     * recommendations. A record being analysed right now cannot be
+     * deleted. If it was the record on display, the newest remaining
+     * analysed record takes its place.
+     */
+    if (!$errors && $action === 'delete_record') {
+        $deleteId = (int) ($_POST['record_id'] ?? 0);
+
+        $deleteStatement = $pdo->prepare(
+            'SELECT id, file_path, status, is_current
+             FROM academic_records
+             WHERE id = :id AND user_id = :user_id'
+        );
+        $deleteStatement->execute(['id' => $deleteId, 'user_id' => $userId]);
+        $deleteRecord = $deleteStatement->fetch();
+
+        if (!$deleteRecord) {
+            $errors[] = t('record_api_not_found');
+        } elseif ($deleteRecord['status'] === 'processing') {
+            $errors[] = t('record_delete_processing');
+        } else {
+            $removed = $pdo->prepare(
+                "DELETE FROM academic_records
+                 WHERE id = :id AND user_id = :user_id AND status <> 'processing'"
+            );
+            $removed->execute(['id' => $deleteId, 'user_id' => $userId]);
+
+            if ($removed->rowCount() === 1) {
+                $storageRoot = realpath(dirname(__DIR__) . '/storage/academic-records');
+                $absolutePath = realpath(dirname(__DIR__) . '/' . $deleteRecord['file_path']);
+
+                if (
+                    $absolutePath !== false
+                    && $storageRoot !== false
+                    && str_starts_with($absolutePath, $storageRoot . DIRECTORY_SEPARATOR)
+                    && is_file($absolutePath)
+                ) {
+                    @unlink($absolutePath);
+                }
+
+                if ((int) $deleteRecord['is_current'] === 1) {
+                    $pdo->prepare(
+                        "UPDATE academic_records
+                         SET is_current = 1
+                         WHERE user_id = :user_id AND status = 'analyzed'
+                         ORDER BY analyzed_at DESC, id DESC
+                         LIMIT 1"
+                    )->execute(['user_id' => $userId]);
+                }
+
+                logActivity($pdo, 'RECORD_DELETED', $userId, 'record=' . $deleteId);
+
+                $_SESSION['academic_record_success'] = t('record_delete_done');
+            }
+
+            header('Location: /masar/student/academic-record.php');
+            exit;
+        }
+    }
+
     if (!$errors && $action === 'upload_record') {
         if (!is_array($uploadedFile)) {
             $errors[] = t('record_error_select_pdf');
@@ -782,6 +843,27 @@ require_once __DIR__ . '/../includes/sidebar.php';
                                                                 ? t('record_analyze_now')
                                                                 : t('record_retry')
                                                         ) ?>
+                                                    </button>
+                                                </form>
+                                            <?php endif; ?>
+
+                                            <?php if ($record['status'] !== 'processing'): ?>
+                                                <form
+                                                    method="POST"
+                                                    action="/masar/student/academic-record.php"
+                                                    class="record-delete-form"
+                                                    onsubmit="return confirm(<?= escape(json_encode(
+                                                        (int) $record['is_current'] === 1
+                                                            ? t('record_delete_confirm_current')
+                                                            : t('record_delete_confirm'),
+                                                        JSON_UNESCAPED_UNICODE
+                                                    )) ?>);"
+                                                >
+                                                    <input type="hidden" name="csrf_token" value="<?= escape($_SESSION['csrf_token']) ?>">
+                                                    <input type="hidden" name="action" value="delete_record">
+                                                    <input type="hidden" name="record_id" value="<?= (int) $record['id'] ?>">
+                                                    <button type="submit" class="record-delete-button">
+                                                        <?= escape(t('record_delete')) ?>
                                                     </button>
                                                 </form>
                                             <?php else: ?>

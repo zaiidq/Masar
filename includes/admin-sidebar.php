@@ -81,6 +81,15 @@ if (
             </a>
 
             <a
+                href="/masar/admin/faculties.php"
+                class="<?= $currentAdminPage === 'faculties.php'
+                    ? 'is-active'
+                    : '' ?>"
+            >
+                <?= htmlspecialchars(t('admin_faculties_nav')) ?>
+            </a>
+
+            <a
                 href="/masar/admin/activity-log.php"
                 class="<?= $currentAdminPage === 'activity-log.php'
                     ? 'is-active'
@@ -276,6 +285,15 @@ if (
             : '' ?>"
     >
         <?= htmlspecialchars(t('admin_links_short')) ?>
+    </a>
+
+    <a
+        href="/masar/admin/faculties.php"
+        class="<?= $currentAdminPage === 'faculties.php'
+            ? 'is-active'
+            : '' ?>"
+    >
+        <?= htmlspecialchars(t('admin_faculties_short')) ?>
     </a>
 
     <a
