@@ -65,16 +65,27 @@ $recommendationStats = $pdo->query(
      FROM record_recommendations'
 )->fetch();
 
-$rejectionReasons = $pdo->query(
-    "SELECT
-        SUBSTRING_INDEX(rejection_reason, ':', 1) AS reason,
-        COUNT(*) AS total
-     FROM record_recommendations
-     WHERE is_accepted = 0
-     GROUP BY reason
-     ORDER BY total DESC
-     LIMIT 5"
-)->fetchAll();
+/*
+ * Blocked suggestions by cause. The stored text carries details (course
+ * codes, hour figures), so it is reduced to its category here and the
+ * categories are counted, giving one row per cause.
+ */
+$rejectionReasons = [];
+
+foreach (
+    $pdo->query(
+        'SELECT rejection_reason, COUNT(*) AS total
+         FROM record_recommendations
+         WHERE is_accepted = 0
+         GROUP BY rejection_reason'
+    )->fetchAll() as $row
+) {
+    $label = rejectionReasonLabel((string) $row['rejection_reason']);
+    $rejectionReasons[$label] = ($rejectionReasons[$label] ?? 0) + (int) $row['total'];
+}
+
+arsort($rejectionReasons);
+$rejectionReasons = array_slice($rejectionReasons, 0, 5, true);
 
 $chatStats = $pdo->query(
     "SELECT
@@ -108,7 +119,9 @@ function rejectionReasonLabel(string $reason): string
         str_starts_with($reason, 'Course is not part') => t('admin_ai_reason_not_in_record'),
         str_starts_with($reason, 'Course credit hours') => t('admin_ai_reason_hours'),
         str_starts_with($reason, 'Exceeds') => t('admin_ai_reason_limit'),
-        default => $reason,
+        str_starts_with($reason, 'Not needed') => t('admin_ai_reason_not_needed'),
+        $reason === '' => t('admin_ai_reason_other'),
+        default => trim(explode(':', $reason)[0]),
     };
 }
 
@@ -276,16 +289,16 @@ require_once __DIR__ . '/../includes/admin-sidebar.php';
             <div class="admin-ai-reasons">
                 <h3><?= adminEscape(t('admin_ai_top_reasons')) ?></h3>
                 <ul>
-                    <?php foreach ($rejectionReasons as $row): ?>
+                    <?php foreach ($rejectionReasons as $reasonLabel => $reasonTotal): ?>
                         <?php $share = (int) $recommendationStats['rejected'] > 0
-                            ? (int) $row['total'] / (int) $recommendationStats['rejected'] * 100
+                            ? $reasonTotal / (int) $recommendationStats['rejected'] * 100
                             : 0; ?>
                         <li>
-                            <span><?= adminEscape(rejectionReasonLabel((string) $row['reason'])) ?></span>
+                            <span><?= adminEscape($reasonLabel) ?></span>
                             <span class="admin-ai-reasons__bar" aria-hidden="true">
                                 <span style="inline-size: <?= number_format($share, 1, '.', '') ?>%"></span>
                             </span>
-                            <strong><?= (int) $row['total'] ?></strong>
+                            <strong><?= (int) $reasonTotal ?></strong>
                         </li>
                     <?php endforeach; ?>
                 </ul>

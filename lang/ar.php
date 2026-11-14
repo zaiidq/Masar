@@ -626,4 +626,8 @@ return [
     'event_admin_major_created' => 'إضافة تخصص',
     'event_admin_major_updated' => 'تعديل تخصص',
     'event_admin_major_deleted' => 'حذف تخصص',
+
+    /* AI evaluation: more blocking causes */
+    'admin_ai_reason_not_needed' => 'يتجاوز الساعات المتبقية للتخرج',
+    'admin_ai_reason_other' => 'أخرى',
 ];

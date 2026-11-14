@@ -626,4 +626,8 @@ return [
     'event_admin_major_created' => 'Major added',
     'event_admin_major_updated' => 'Major updated',
     'event_admin_major_deleted' => 'Major deleted',
+
+    /* AI evaluation: more blocking causes */
+    'admin_ai_reason_not_needed' => 'Beyond the hours still needed to graduate',
+    'admin_ai_reason_other' => 'Other',
 ];
