@@ -70,6 +70,34 @@ function loadEnvironment(?string $path = null): void
 }
 
 /**
+ * True when the visitor reached Masar over HTTPS.
+ *
+ * Behind a reverse proxy that terminates HTTPS (Tailscale Funnel, nginx,
+ * Cloudflare) Apache itself only sees plain HTTP, so the proxy's
+ * X-Forwarded-Proto header is used — but only with TRUST_PROXY=1,
+ * because without a proxy that header can be forged by the visitor.
+ */
+function requestIsHttps(): bool
+{
+    if (
+        (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
+        || (int) ($_SERVER['SERVER_PORT'] ?? 0) === 443
+    ) {
+        return true;
+    }
+
+    if (env('TRUST_PROXY', '0') !== '1') {
+        return false;
+    }
+
+    $forwardedProto = strtolower(trim(
+        explode(',', (string) ($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? ''))[0]
+    ));
+
+    return $forwardedProto === 'https';
+}
+
+/**
  * Read a configuration value, falling back to a default.
  */
 function env(string $key, ?string $default = null): ?string

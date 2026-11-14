@@ -147,8 +147,10 @@ Recommendations page) to get Arabic recommendation reasons.
   from the same address, so a few wrong passwords from anyone block
   sign-in for everyone until the 15 minutes pass. This is accepted while
   Masar is only reachable through Tailscale. Before a wider deployment,
-  either set `TRUST_PROXY=1` (only if the proxy overwrites
-  `X-Forwarded-For`) or change the limit to count per account as well.
+  set `TRUST_PROXY=1` if the proxy passes the visitor's address in
+  `X-Forwarded-For` (check the IP column of the admin Activity log: it
+  should show different addresses, not one), or change the limit to
+  count per account as well.
 
 ## Configuration (`.env`)
 
@@ -161,7 +163,7 @@ Recommendations page) to get Arabic recommendation reasons.
 | `SESSION_LIFETIME` | `28800` | Seconds of inactivity before logout |
 | `CHAT_DAILY_LIMIT` | `30` | Ask Masar questions per student per day |
 | `LOGIN_MAX_ATTEMPTS` | `5` | Failed logins per IP per 15 minutes |
-| `TRUST_PROXY` | `0` | Trust `X-Forwarded-For` (only behind your own proxy) |
+| `TRUST_PROXY` | `0` | Trust `X-Forwarded-For` / `X-Forwarded-Proto` (only behind your own proxy); makes the session cookie `Secure` over HTTPS |
 | `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD` | empty, `587` | Mail server for password reset links; empty host switches email off |
 | `MAIL_FROM`, `MAIL_FROM_NAME` | `SMTP_USER`, `Masar` | Sender of those emails |
 | `APP_URL` | detected | Public address used in emailed links (set it behind a proxy) |

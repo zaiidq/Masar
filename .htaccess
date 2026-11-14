@@ -52,7 +52,11 @@ Options -Indexes
 </IfModule>
 
 <IfModule mod_headers.c>
+    # Static files; pages get their security headers from PHP
+    # (includes/session-config.php), so they work without this module.
+
     <FilesMatch "\.(css|js|svg|png|jpe?g|woff2?)$">
         Header set Cache-Control "public, max-age=2592000"
+        Header set X-Content-Type-Options "nosniff"
     </FilesMatch>
 </IfModule>

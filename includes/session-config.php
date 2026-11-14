@@ -18,6 +18,39 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../config/env.php';
 
+/*
+ * Browser security headers, sent with every page (every entry point
+ * loads this file).
+ *
+ * The content policy allows only Masar's own files plus Google Fonts.
+ * Inline scripts and styles stay allowed because the pages use them;
+ * the policy still blocks scripts, frames and form targets from any
+ * other site.
+ */
+if (!headers_sent() && PHP_SAPI !== 'cli') {
+    header('X-Content-Type-Options: nosniff');
+    header('X-Frame-Options: SAMEORIGIN');
+    header('Referrer-Policy: strict-origin-when-cross-origin');
+    header('Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=()');
+    header(
+        "Content-Security-Policy: default-src 'self'; "
+        . "script-src 'self' 'unsafe-inline'; "
+        . "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; "
+        . "font-src 'self' https://fonts.gstatic.com; "
+        . "img-src 'self' data:; "
+        . "connect-src 'self'; "
+        . "object-src 'none'; "
+        . "base-uri 'self'; "
+        . "form-action 'self'; "
+        . "frame-ancestors 'self'"
+    );
+
+    if (requestIsHttps()) {
+        /* Keep browsers on HTTPS once they have used it. */
+        header('Strict-Transport-Security: max-age=15552000');
+    }
+}
+
 if (session_status() === PHP_SESSION_NONE && !headers_sent()) {
     $sessionLifetime = max(
         900,
@@ -36,9 +69,8 @@ if (session_status() === PHP_SESSION_NONE && !headers_sent()) {
         ini_set('session.gc_divisor', '100');
     }
 
-    $isHttps =
-        (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
-        || (int) ($_SERVER['SERVER_PORT'] ?? 0) === 443;
+    /* Also true behind an HTTPS proxy when TRUST_PROXY=1. */
+    $isHttps = requestIsHttps();
 
     ini_set('session.gc_maxlifetime', (string) $sessionLifetime);
     ini_set('session.use_strict_mode', '1');

@@ -21,7 +21,6 @@ require_once __DIR__ . '/../includes/activity-logger.php';
 require_once __DIR__ . '/../includes/csrf.php';
 
 $errors = [];
-$success = '';
 
 $fullName = '';
 $universityId = '';
@@ -156,39 +155,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             );
 
             $stmt->execute([
-    'full_name' => $fullName,
-    'email' => $email,
-    'password' => $hashedPassword,
-    'university_id' => $universityId !== ''
-        ? $universityId
-        : null,
-    'faculty_id' => $selectedFacultyId,
-    'major_id' => $selectedMajorId,
-    'preferred_language' => currentLanguage(),
-]);
+                'full_name' => $fullName,
+                'email' => $email,
+                'password' => $hashedPassword,
+                'university_id' => $universityId !== ''
+                    ? $universityId
+                    : null,
+                'faculty_id' => $selectedFacultyId,
+                'major_id' => $selectedMajorId,
+                'preferred_language' => currentLanguage(),
+            ]);
 
-$newUserId = (int) $pdo->lastInsertId();
+            logActivity(
+                $pdo,
+                'REGISTER',
+                (int) $pdo->lastInsertId(),
+                'role=student'
+            );
 
-logActivity(
-    $pdo,
-    'REGISTER',
-    $newUserId,
-    'role=student'
-);
-
-/*
- * Go straight to the login page with a confirmation and the email
- * already filled in (Post/Redirect/Get: a refresh never re-submits).
- */
-$_SESSION['registered_email'] = $email;
-header('Location: /masar/auth/login.php?registered=1');
-exit;
-
-            $fullName = '';
-            $universityId = '';
-            $email = '';
-            $selectedFacultyId = 0;
-            $selectedMajorId = 0;
+            /*
+             * Go straight to the login page with a confirmation and the
+             * email already filled in (Post/Redirect/Get: a refresh
+             * never re-submits).
+             */
+            $_SESSION['registered_email'] = $email;
+            header('Location: /masar/auth/login.php?registered=1');
+            exit;
         }
     }
 }
@@ -283,13 +275,6 @@ $languageSwitchUrl = '/masar/switch-language.php?lang='
                             <li><?= htmlspecialchars($error) ?></li>
                         <?php endforeach; ?>
                     </ul>
-                </div>
-            <?php endif; ?>
-
-            <?php if ($success !== ''): ?>
-                <div class="auth-alert-new auth-alert-new--success" role="status">
-                    <strong><?= htmlspecialchars($success) ?></strong>
-                    <a href="/masar/auth/login.php"><?= htmlspecialchars(t('auth_login_action')) ?> →</a>
                 </div>
             <?php endif; ?>
 

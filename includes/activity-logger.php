@@ -53,9 +53,13 @@ function getClientIpAddress(): ?string
      */
     if (function_exists('env') && env('TRUST_PROXY', '0') === '1') {
         if (!empty($_SERVER['HTTP_X_FORWARDED_FOR'])) {
-            foreach (explode(',', (string) $_SERVER['HTTP_X_FORWARDED_FOR']) as $ip) {
-                $candidates[] = trim($ip);
-            }
+            /*
+             * Proxies append to this header, so the last entry is the
+             * one written by our own proxy; earlier entries came from
+             * the visitor and could be made up.
+             */
+            $forwarded = explode(',', (string) $_SERVER['HTTP_X_FORWARDED_FOR']);
+            $candidates[] = trim((string) end($forwarded));
         }
 
         if (!empty($_SERVER['HTTP_X_REAL_IP'])) {

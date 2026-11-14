@@ -28,13 +28,9 @@ function appBaseUrl(): string
         return rtrim($configured, '/');
     }
 
-    $isHttps =
-        (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
-        || (int) ($_SERVER['SERVER_PORT'] ?? 0) === 443;
-
     $host = preg_replace('/[^A-Za-z0-9.\-:\[\]]/', '', (string) ($_SERVER['HTTP_HOST'] ?? 'localhost'));
 
-    return ($isHttps ? 'https://' : 'http://') . $host . '/masar';
+    return (requestIsHttps() ? 'https://' : 'http://') . $host . '/masar';
 }
 
 /**
