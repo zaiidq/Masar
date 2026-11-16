@@ -9,6 +9,10 @@
  *
  * The image address must be absolute and reachable from the internet;
  * set APP_URL in .env when Masar runs behind a proxy.
+ *
+ * Chat apps often crop the image to a centred square, so its content
+ * sits in the middle. They also cache it by address: raise the ?v=
+ * number below whenever the image file is replaced.
  */
 
 $shareBaseUrl = appBaseUrl();
@@ -23,7 +27,7 @@ $shareEscape = static fn (string $value): string => htmlspecialchars($value, ENT
     <meta property="og:title" content="<?= $shareEscape($shareTitle) ?>">
     <meta property="og:description" content="<?= $shareEscape($shareDescription) ?>">
     <meta property="og:url" content="<?= $shareEscape($shareBaseUrl . '/') ?>">
-    <meta property="og:image" content="<?= $shareEscape($shareBaseUrl . '/assets/brand/masar-share.png') ?>">
+    <meta property="og:image" content="<?= $shareEscape($shareBaseUrl . '/assets/brand/masar-share.png?v=2') ?>">
     <meta property="og:image:type" content="image/png">
     <meta property="og:image:width" content="1200">
     <meta property="og:image:height" content="630">
