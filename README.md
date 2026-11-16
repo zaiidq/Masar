@@ -142,15 +142,41 @@ Recommendations page) to get Arabic recommendation reasons.
 ## Known limitations
 
 - **Login lockout is per IP address.** After `LOGIN_MAX_ATTEMPTS` failed
-  logins from one address, that address is blocked for 15 minutes. Behind
-  Tailscale Funnel (or any reverse proxy) every visitor reaches Apache
-  from the same address, so a few wrong passwords from anyone block
-  sign-in for everyone until the 15 minutes pass. This is accepted while
-  Masar is only reachable through Tailscale. Before a wider deployment,
-  set `TRUST_PROXY=1` if the proxy passes the visitor's address in
-  `X-Forwarded-For` (check the IP column of the admin Activity log: it
-  should show different addresses, not one), or change the limit to
-  count per account as well.
+  logins from one address, that address is blocked for 15 minutes.
+  - Behind a reverse proxy, Apache sees every visitor as the proxy's
+    address unless `TRUST_PROXY=1` is set, so a few wrong passwords from
+    anyone would block sign-in for everyone. With `TRUST_PROXY=1` the IP
+    column of the admin Activity log must show different addresses, not
+    `127.0.0.1`.
+  - People who share one public address (a university or home network)
+    are still blocked together. Counting per account as well would
+    remove this.
+
+## Public access (reverse proxy)
+
+The production site is published under a domain name through
+[Caddy](https://caddyserver.com), which obtains the HTTPS certificate
+automatically and passes requests to Apache:
+
+```
+example.ddns.net {
+    encode gzip
+    redir / /masar/
+    reverse_proxy 127.0.0.1:8080
+}
+```
+
+Then in `.env`:
+
+```
+APP_URL=https://example.ddns.net/masar
+TRUST_PROXY=1
+```
+
+Forward **only port 443** on the router. Apache's own port (8080 above)
+must not be reachable from the internet: with `TRUST_PROXY=1` Masar
+believes the proxy's `X-Forwarded-*` headers, and a visitor who reaches
+Apache directly could forge them.
 
 ## Configuration (`.env`)
 
@@ -166,7 +192,7 @@ Recommendations page) to get Arabic recommendation reasons.
 | `TRUST_PROXY` | `0` | Trust `X-Forwarded-For` / `X-Forwarded-Proto` (only behind your own proxy); makes the session cookie `Secure` over HTTPS |
 | `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD` | empty, `587` | Mail server for password reset links; empty host switches email off |
 | `MAIL_FROM`, `MAIL_FROM_NAME` | `SMTP_USER`, `Masar` | Sender of those emails |
-| `APP_URL` | detected | Public address used in emailed links and in link previews (set it behind a proxy, e.g. `https://server.tailnet.ts.net/masar`) |
+| `APP_URL` | detected | Public address used in emailed links and in link previews (set it behind a proxy, e.g. `https://example.ddns.net/masar`) |
 
 ### Password reset
 

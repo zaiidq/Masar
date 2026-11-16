@@ -72,7 +72,7 @@ function loadEnvironment(?string $path = null): void
 /**
  * True when the visitor reached Masar over HTTPS.
  *
- * Behind a reverse proxy that terminates HTTPS (Tailscale Funnel, nginx,
+ * Behind a reverse proxy that terminates HTTPS (Caddy, nginx,
  * Cloudflare) Apache itself only sees plain HTTP, so the proxy's
  * X-Forwarded-Proto header is used — but only with TRUST_PROXY=1,
  * because without a proxy that header can be forged by the visitor.
@@ -100,7 +100,7 @@ function requestIsHttps(): bool
 /**
  * Absolute address of the site ("https://host/masar"), for links that
  * leave the site: emails and link previews in chat apps.
- * APP_URL in .env wins (needed behind a proxy such as Tailscale Funnel).
+ * APP_URL in .env wins (needed behind a reverse proxy).
  */
 function appBaseUrl(): string
 {
