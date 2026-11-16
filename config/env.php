@@ -98,6 +98,24 @@ function requestIsHttps(): bool
 }
 
 /**
+ * Absolute address of the site ("https://host/masar"), for links that
+ * leave the site: emails and link previews in chat apps.
+ * APP_URL in .env wins (needed behind a proxy such as Tailscale Funnel).
+ */
+function appBaseUrl(): string
+{
+    $configured = env('APP_URL');
+
+    if ($configured !== null) {
+        return rtrim($configured, '/');
+    }
+
+    $host = preg_replace('/[^A-Za-z0-9.\-:\[\]]/', '', (string) ($_SERVER['HTTP_HOST'] ?? 'localhost'));
+
+    return (requestIsHttps() ? 'https://' : 'http://') . $host . '/masar';
+}
+
+/**
  * Read a configuration value, falling back to a default.
  */
 function env(string $key, ?string $default = null): ?string

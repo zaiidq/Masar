@@ -166,7 +166,7 @@ Recommendations page) to get Arabic recommendation reasons.
 | `TRUST_PROXY` | `0` | Trust `X-Forwarded-For` / `X-Forwarded-Proto` (only behind your own proxy); makes the session cookie `Secure` over HTTPS |
 | `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD` | empty, `587` | Mail server for password reset links; empty host switches email off |
 | `MAIL_FROM`, `MAIL_FROM_NAME` | `SMTP_USER`, `Masar` | Sender of those emails |
-| `APP_URL` | detected | Public address used in emailed links (set it behind a proxy) |
+| `APP_URL` | detected | Public address used in emailed links and in link previews (set it behind a proxy, e.g. `https://server.tailnet.ts.net/masar`) |
 
 ### Password reset
 

@@ -211,6 +211,7 @@ $languageSwitchUrl = '/masar/switch-language.php?lang='
         href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Tajawal:wght@400;500;700&display=swap"
         rel="stylesheet"
     >
+    <?php require __DIR__ . '/../includes/share-meta.php'; ?>
     <?php require __DIR__ . '/../includes/theme-head.php'; ?>
     <script src="/masar/assets/js/major-selector.js?v=3" defer></script>
 </head>

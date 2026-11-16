@@ -17,23 +17,6 @@ const PASSWORD_RESET_MAX_PER_HOUR = 3;
 const PASSWORD_MIN_LENGTH = 8;
 
 /**
- * Absolute URL of the site, for links sent by email.
- * APP_URL in .env wins (needed behind a proxy such as Tailscale Funnel).
- */
-function appBaseUrl(): string
-{
-    $configured = env('APP_URL');
-
-    if ($configured !== null) {
-        return rtrim($configured, '/');
-    }
-
-    $host = preg_replace('/[^A-Za-z0-9.\-:\[\]]/', '', (string) ($_SERVER['HTTP_HOST'] ?? 'localhost'));
-
-    return (requestIsHttps() ? 'https://' : 'http://') . $host . '/masar';
-}
-
-/**
  * Create a reset link for the user and return it.
  *
  * @param int|null $createdBy Administrator who issued it, null when the

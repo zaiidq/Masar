@@ -35,6 +35,7 @@ function authShellStart(string $pageTitle, string $fallbackUri): void
         href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Tajawal:wght@400;500;700&display=swap"
         rel="stylesheet"
     >
+    <?php require __DIR__ . '/share-meta.php'; ?>
     <?php require __DIR__ . '/theme-head.php'; ?>
 </head>
 <body class="auth-body-new">

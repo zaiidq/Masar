@@ -630,4 +630,8 @@ return [
     /* AI evaluation: more blocking causes */
     'admin_ai_reason_not_needed' => 'Beyond the hours still needed to graduate',
     'admin_ai_reason_other' => 'Other',
+
+    /* Link preview (Open Graph) */
+    'share_title' => 'Masar | Academic advising for MEU students',
+    'share_description' => 'Upload your academic record, see your progress toward graduation, and get a validated plan for next semester.',
 ];

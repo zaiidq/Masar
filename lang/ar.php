@@ -630,4 +630,8 @@ return [
     /* AI evaluation: more blocking causes */
     'admin_ai_reason_not_needed' => 'يتجاوز الساعات المتبقية للتخرج',
     'admin_ai_reason_other' => 'أخرى',
+
+    /* Link preview (Open Graph) */
+    'share_title' => 'مسار | الإرشاد الأكاديمي لطلبة جامعة الشرق الأوسط',
+    'share_description' => 'ارفع سجلك الأكاديمي، واعرف تقدمك نحو التخرج، واحصل على خطة موثوقة للفصل القادم.',
 ];
